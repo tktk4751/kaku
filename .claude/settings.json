@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "deny": [
+      "Read(.env*)",
+      "Edit(.env*)",
+      "Write(.env*)",
+      "Bash(* .env*)",
+      "Read(**/.env*)",
+      "Edit(**/.env*)",
+      "Write(**/.env*)",
+      "Bash(* **/.env*)",
+
+      "Read(secrets/**)",
+      "Edit(secrets/**)",
+      "Write(secrets/**)",
+      "Bash(* **/secrets/**)",
+      "Read(**/secrets/**)",
+      "Edit(**/secrets/**)",
+      "Write(**/secrets/**)",
+      "Bash(* **/secrets/**)",
+
+      "Read(**/.ssh/**)",
+      "Edit(**/.ssh/**)",
+      "Write(**/.ssh/**)",
+      "Read(**/*id_rsa*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.p12)",
+      "Read(**/*service-account*.json)",
+      "Read(**/credentials/*.json)",
+
+      "WebFetch",
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "Bash(scp:*)",
+      "Bash(ssh:*)",
+      "Bash(git push:*)",
+
+      "Bash(git config *)",
+      "Bash(brew install *)",
+      "Bash(chmod 777 *)",
+      "Bash(rm -rf /*)",
+      "Bash(gh repo delete:*)"
+    ],
+    "allow": [],
+
+    "model": "opus"
+  }
+}

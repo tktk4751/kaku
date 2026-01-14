@@ -1,0 +1,43 @@
+:root[data-theme="tokyo-night"],
+:root {
+  /* Background */
+  --bg-primary: #1a1b26;
+  --bg-secondary: #16161e;
+  --bg-tertiary: #1f2335;
+  --bg-highlight: #292e42;
+
+  /* Foreground */
+  --fg-primary: #c0caf5;
+  --fg-secondary: #a9b1d6;
+  --fg-muted: #565f89;
+  --fg-dark: #414868;
+
+  /* Accent */
+  --accent-blue: #7aa2f7;
+  --accent-cyan: #7dcfff;
+  --accent-purple: #bb9af7;
+  --accent-green: #9ece6a;
+  --accent-orange: #ff9e64;
+  --accent-red: #f7768e;
+  --accent-yellow: #e0af68;
+
+  /* UI Elements */
+  --border-color: #292e42;
+  --scrollbar-track: #1a1b26;
+  --scrollbar-thumb: #414868;
+
+  /* Editor specific */
+  --editor-bg: var(--bg-primary);
+  --editor-line-highlight: #1e2030;
+  --editor-selection: #364a82;
+  --editor-cursor: var(--accent-blue);
+
+  /* Markdown syntax highlighting */
+  --md-heading: var(--accent-blue);
+  --md-bold: var(--accent-orange);
+  --md-italic: var(--accent-purple);
+  --md-link: var(--accent-cyan);
+  --md-code: var(--accent-green);
+  --md-quote: var(--fg-muted);
+  --md-list: var(--accent-yellow);
+}
