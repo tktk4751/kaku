@@ -1,13 +1,14 @@
 <script lang="ts">
   import type { EditorView } from '@codemirror/view';
   import {
-    findMatches,
-    highlightMatches,
-    clearHighlights,
-    scrollToMatch,
-    replaceAt,
-    replaceAll,
-    type SearchMatch,
+    setSearchAndGoToFirst,
+    clearSearch,
+    getSearchState,
+    goToNextMatch,
+    goToPrevMatch,
+    replaceCurrent,
+    replaceAllMatches,
+    type SearchState,
   } from '$lib/editor/setup';
 
   interface Props {
@@ -24,13 +25,11 @@
   let replacement = $state('');
   let caseSensitive = $state(false);
   let showReplace = $state(false);
-  let matches = $state<SearchMatch[]>([]);
-  let currentIndex = $state(0);
+  let searchState = $state<SearchState>({ matchCount: 0, currentMatch: 0 });
 
-  // Derived display for match count
-  const matchDisplay = $derived(
-    matches.length > 0 ? `${currentIndex + 1}/${matches.length}` : 'No results'
-  );
+  // Debounce timer for search
+  let searchTimer: ReturnType<typeof setTimeout> | null = null;
+  const DEBOUNCE_MS = 50;
 
   // Focus find input on mount
   $effect(() => {
@@ -39,19 +38,26 @@
     }
   });
 
-  // Update search when query or case sensitivity changes
+  // Update search when query or case sensitivity changes (debounced)
   $effect(() => {
+    if (searchTimer) {
+      clearTimeout(searchTimer);
+    }
+
     if (editorView && query) {
-      matches = findMatches(editorView, query, caseSensitive);
-      currentIndex = matches.length > 0 ? 0 : -1;
-      highlightMatches(editorView, matches, Math.max(0, currentIndex));
-      if (matches.length > 0) {
-        scrollToMatch(editorView, matches[0]);
-      }
+      searchTimer = setTimeout(() => {
+        // Set search and automatically go to first match in document order
+        setSearchAndGoToFirst(editorView!, query, caseSensitive);
+        // Small delay to let CodeMirror update, then get state
+        requestAnimationFrame(() => {
+          if (editorView) {
+            searchState = getSearchState(editorView);
+          }
+        });
+      }, DEBOUNCE_MS);
     } else if (editorView) {
-      matches = [];
-      currentIndex = -1;
-      clearHighlights(editorView);
+      clearSearch(editorView);
+      searchState = { matchCount: 0, currentMatch: 0 };
     }
   });
 
@@ -59,6 +65,7 @@
     if (e.key === 'Escape') {
       handleClose();
     } else if (e.key === 'Enter') {
+      e.preventDefault();
       if (e.shiftKey) {
         goToPrev();
       } else {
@@ -71,58 +78,53 @@
     if (e.key === 'Escape') {
       handleClose();
     } else if (e.key === 'Enter') {
+      e.preventDefault();
       handleReplace();
     }
   }
 
   function goToNext() {
-    if (matches.length === 0 || !editorView) return;
-    currentIndex = (currentIndex + 1) % matches.length;
-    highlightMatches(editorView, matches, currentIndex);
-    scrollToMatch(editorView, matches[currentIndex]);
+    if (!editorView || searchState.matchCount === 0) return;
+    goToNextMatch(editorView);
+    searchState = getSearchState(editorView);
   }
 
   function goToPrev() {
-    if (matches.length === 0 || !editorView) return;
-    currentIndex = (currentIndex - 1 + matches.length) % matches.length;
-    highlightMatches(editorView, matches, currentIndex);
-    scrollToMatch(editorView, matches[currentIndex]);
+    if (!editorView || searchState.matchCount === 0) return;
+    goToPrevMatch(editorView);
+    searchState = getSearchState(editorView);
   }
 
   function handleReplace() {
-    if (!editorView || matches.length === 0 || currentIndex < 0) return;
-
-    const match = matches[currentIndex];
-    replaceAt(editorView, match.from, match.to, replacement);
-
-    // Re-search after replace
-    matches = findMatches(editorView, query, caseSensitive);
-    if (matches.length > 0) {
-      currentIndex = Math.min(currentIndex, matches.length - 1);
-      highlightMatches(editorView, matches, currentIndex);
-      scrollToMatch(editorView, matches[currentIndex]);
-    } else {
-      currentIndex = -1;
-      clearHighlights(editorView);
-    }
+    if (!editorView || searchState.matchCount === 0) return;
+    replaceCurrent(editorView, replacement);
+    // Update search state after replace
+    requestAnimationFrame(() => {
+      if (editorView) {
+        searchState = getSearchState(editorView);
+      }
+    });
   }
 
   function handleReplaceAll() {
-    if (!editorView || matches.length === 0) return;
-
-    replaceAll(editorView, matches, replacement);
-    matches = [];
-    currentIndex = -1;
-    clearHighlights(editorView);
+    if (!editorView || searchState.matchCount === 0) return;
+    replaceAllMatches(editorView, replacement);
+    // Update search state after replace all
+    requestAnimationFrame(() => {
+      if (editorView) {
+        searchState = getSearchState(editorView);
+      }
+    });
   }
 
   function handleClose() {
     if (editorView) {
-      clearHighlights(editorView);
+      clearSearch(editorView);
       editorView.focus();
     }
     query = '';
     replacement = '';
+    searchState = { matchCount: 0, currentMatch: 0 };
     onClose();
   }
 
@@ -163,18 +165,20 @@
 
     <!-- Match count -->
     <span class="match-count">
-      {#if query}
-        {matchDisplay}
+      {#if query && searchState.matchCount > 0}
+        {searchState.currentMatch}/{searchState.matchCount}
+      {:else if query}
+        No results
       {/if}
     </span>
 
     <!-- Navigation -->
-    <button class="nav-btn" onclick={goToPrev} disabled={matches.length === 0} title="Previous (Shift+Enter)">
+    <button class="nav-btn" onclick={goToPrev} disabled={searchState.matchCount === 0} title="Previous (Shift+Enter)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="18 15 12 9 6 15"></polyline>
       </svg>
     </button>
-    <button class="nav-btn" onclick={goToNext} disabled={matches.length === 0} title="Next (Enter)">
+    <button class="nav-btn" onclick={goToNext} disabled={searchState.matchCount === 0} title="Next (Enter)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="6 9 12 15 18 9"></polyline>
       </svg>
@@ -189,6 +193,9 @@
     >
       Aa
     </button>
+
+    <!-- Spacer to push close button to far right -->
+    <div class="flex-spacer"></div>
 
     <!-- Close button -->
     <button class="close-btn" onclick={handleClose} title="Close (Esc)">
@@ -213,10 +220,10 @@
           onkeydown={handleReplaceKeydown}
         />
       </div>
-      <button class="action-btn" onclick={handleReplace} disabled={matches.length === 0} title="Replace">
+      <button class="action-btn" onclick={handleReplace} disabled={searchState.matchCount === 0} title="Replace">
         Replace
       </button>
-      <button class="action-btn" onclick={handleReplaceAll} disabled={matches.length === 0} title="Replace all">
+      <button class="action-btn" onclick={handleReplaceAll} disabled={searchState.matchCount === 0} title="Replace all">
         All
       </button>
     </div>
@@ -242,6 +249,10 @@
 
   .spacer {
     width: 24px;
+  }
+
+  .flex-spacer {
+    flex: 1;
   }
 
   .input-wrapper {

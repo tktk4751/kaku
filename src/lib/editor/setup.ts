@@ -1,42 +1,12 @@
 import { EditorState, type Extension } from '@codemirror/state';
-import { EditorView, lineNumbers, highlightActiveLine, drawSelection, keymap, Decoration, type DecorationSet } from '@codemirror/view';
+import { EditorView, lineNumbers, highlightActiveLine, drawSelection, keymap } from '@codemirror/view';
 import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language';
-import { StateField, StateEffect } from '@codemirror/state';
+import { search, SearchQuery, setSearchQuery, getSearchQuery, findNext, findPrevious, replaceNext, replaceAll as cmReplaceAll, searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { tokyoNightTheme } from './themes/tokyoNight';
 import { livePreviewPlugin } from './extensions/livePreview';
 import { getKeymapExtensions, getMarkdownExtension } from './extensions/keymaps';
 
 import type { ThemeName } from '$lib/types';
-
-// Custom search highlight effect
-const setSearchMatches = StateEffect.define<{ ranges: { from: number; to: number }[] }>();
-const clearSearchMatches = StateEffect.define();
-
-// Search match decoration
-const searchMatchMark = Decoration.mark({ class: 'cm-searchMatch' });
-const searchMatchSelectedMark = Decoration.mark({ class: 'cm-searchMatch-selected' });
-
-// State field for search highlights
-const searchHighlightField = StateField.define<DecorationSet>({
-  create() {
-    return Decoration.none;
-  },
-  update(decorations, tr) {
-    for (const e of tr.effects) {
-      if (e.is(setSearchMatches)) {
-        const marks = e.value.ranges.map((r, i) =>
-          (i === 0 ? searchMatchSelectedMark : searchMatchMark).range(r.from, r.to)
-        );
-        return Decoration.set(marks, true);
-      }
-      if (e.is(clearSearchMatches)) {
-        return Decoration.none;
-      }
-    }
-    return decorations.map(tr.changes);
-  },
-  provide: (f) => EditorView.decorations.from(f),
-});
 
 export interface EditorConfig {
   parent: HTMLElement;
@@ -73,8 +43,13 @@ export function createEditor(config: EditorConfig): EditorView {
     // Keymaps (includes history, default keys, markdown shortcuts)
     ...getKeymapExtensions(),
 
-    // Custom search highlight field
-    searchHighlightField,
+    // CodeMirror search extension (optimized, handles highlighting automatically)
+    // Panel is hidden via CSS, but highlighting still works
+    search({
+      literal: true,
+    }),
+    // Highlight selection matches
+    highlightSelectionMatches(),
 
     // Live preview (hides markdown syntax on non-cursor lines)
     livePreviewPlugin(),
@@ -132,89 +107,110 @@ export function focusEditor(view: EditorView): void {
   view.focus();
 }
 
-// Custom search interface
-export interface SearchMatch {
-  from: number;
-  to: number;
+// Search interface using CodeMirror's optimized search
+export interface SearchState {
+  matchCount: number;
+  currentMatch: number; // 1-indexed, 0 means no current match
 }
 
-export interface SearchResult {
-  matches: SearchMatch[];
-  currentIndex: number;
+// Set search query (uses CodeMirror's optimized search)
+export function setSearch(view: EditorView, query: string, caseSensitive: boolean = false): void {
+  const searchQuery = new SearchQuery({
+    search: query,
+    caseSensitive,
+    literal: true,
+  });
+  view.dispatch({ effects: setSearchQuery.of(searchQuery) });
 }
 
-// Find all matches in document
-export function findMatches(
-  view: EditorView,
-  query: string,
-  caseSensitive: boolean = false
-): SearchMatch[] {
-  if (!query) return [];
+// Set search and go to first match in document order
+export function setSearchAndGoToFirst(view: EditorView, query: string, caseSensitive: boolean = false): void {
+  const searchQuery = new SearchQuery({
+    search: query,
+    caseSensitive,
+    literal: true,
+  });
+  // Move cursor to start of document, then set search and find first match
+  view.dispatch({
+    effects: setSearchQuery.of(searchQuery),
+    selection: { anchor: 0 },
+  });
+  // Find next will now find the first match in document order
+  findNext(view);
+}
 
-  const doc = view.state.doc.toString();
-  const searchStr = caseSensitive ? query : query.toLowerCase();
-  const searchDoc = caseSensitive ? doc : doc.toLowerCase();
-  const matches: SearchMatch[] = [];
+// Clear search
+export function clearSearch(view: EditorView): void {
+  const searchQuery = new SearchQuery({ search: '' });
+  view.dispatch({ effects: setSearchQuery.of(searchQuery) });
+}
 
-  let pos = 0;
-  while (pos < searchDoc.length) {
-    const index = searchDoc.indexOf(searchStr, pos);
-    if (index === -1) break;
-    matches.push({ from: index, to: index + query.length });
-    pos = index + 1;
+// Get current search state (match count and current position)
+export function getSearchState(view: EditorView): SearchState {
+  const query = getSearchQuery(view.state);
+  if (!query.valid) {
+    return { matchCount: 0, currentMatch: 0 };
   }
 
-  return matches;
-}
+  // Count matches using cursor
+  let matchCount = 0;
+  let currentMatch = 0;
+  const cursor = query.getCursor(view.state.doc);
+  const selection = view.state.selection.main;
 
-// Highlight search matches
-export function highlightMatches(view: EditorView, matches: SearchMatch[], currentIndex: number = 0): void {
-  if (matches.length === 0) {
-    view.dispatch({ effects: clearSearchMatches.of(null) });
-    return;
+  let result = cursor.next();
+  while (!result.done) {
+    matchCount++;
+    // Check if this match contains the selection
+    if (result.value.from <= selection.from && result.value.to >= selection.to) {
+      currentMatch = matchCount;
+    }
+    result = cursor.next();
   }
 
-  // Reorder so current match is first (for selected styling)
-  const reordered = [
-    matches[currentIndex],
-    ...matches.slice(0, currentIndex),
-    ...matches.slice(currentIndex + 1),
-  ];
-
-  view.dispatch({
-    effects: setSearchMatches.of({ ranges: reordered }),
-  });
+  return { matchCount, currentMatch };
 }
 
-// Clear search highlights
-export function clearHighlights(view: EditorView): void {
-  view.dispatch({ effects: clearSearchMatches.of(null) });
+// Go to next match
+export function goToNextMatch(view: EditorView): boolean {
+  return findNext(view);
 }
 
-// Scroll to match
-export function scrollToMatch(view: EditorView, match: SearchMatch): void {
-  view.dispatch({
-    selection: { anchor: match.from, head: match.to },
-    scrollIntoView: true,
-  });
+// Go to previous match
+export function goToPrevMatch(view: EditorView): boolean {
+  return findPrevious(view);
 }
 
-// Replace text at position
-export function replaceAt(view: EditorView, from: number, to: number, replacement: string): void {
-  view.dispatch({
-    changes: { from, to, insert: replacement },
+// Replace current match
+export function replaceCurrent(view: EditorView, replacement: string): boolean {
+  const query = getSearchQuery(view.state);
+  if (!query.valid) return false;
+
+  // Set replacement in query
+  const newQuery = new SearchQuery({
+    search: query.search,
+    caseSensitive: query.caseSensitive,
+    literal: true,
+    replace: replacement,
   });
+  view.dispatch({ effects: setSearchQuery.of(newQuery) });
+
+  return replaceNext(view);
 }
 
 // Replace all matches
-export function replaceAll(view: EditorView, matches: SearchMatch[], replacement: string): number {
-  if (matches.length === 0) return 0;
+export function replaceAllMatches(view: EditorView, replacement: string): boolean {
+  const query = getSearchQuery(view.state);
+  if (!query.valid) return false;
 
-  // Sort matches in reverse order to maintain positions
-  const sorted = [...matches].sort((a, b) => b.from - a.from);
+  // Set replacement in query
+  const newQuery = new SearchQuery({
+    search: query.search,
+    caseSensitive: query.caseSensitive,
+    literal: true,
+    replace: replacement,
+  });
+  view.dispatch({ effects: setSearchQuery.of(newQuery) });
 
-  const changes = sorted.map((m) => ({ from: m.from, to: m.to, insert: replacement }));
-  view.dispatch({ changes });
-
-  return matches.length;
+  return cmReplaceAll(view);
 }

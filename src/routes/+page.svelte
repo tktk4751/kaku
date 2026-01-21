@@ -7,9 +7,11 @@
   import Sidebar from '$lib/components/Sidebar.svelte';
   import TitleBar from '$lib/components/TitleBar.svelte';
   import SettingsModal from '$lib/components/SettingsModal.svelte';
+  import CommandPalette from '$lib/components/CommandPalette.svelte';
 
   let sidebarOpen = $state(false);
   let settingsOpen = $state(false);
+  let commandPaletteOpen = $state(false);
   let unlistenVisibility: (() => void) | null = null;
   let unlistenCreateNote: (() => void) | null = null;
 
@@ -125,6 +127,14 @@
     settingsOpen = false;
   }
 
+  function closeCommandPalette() {
+    commandPaletteOpen = false;
+  }
+
+  async function handlePaletteSelect(uid: string) {
+    await handleNoteSelect(uid);
+  }
+
   function parseShortcut(shortcut: string): { ctrl: boolean; shift: boolean; alt: boolean; key: string } {
     const parts = shortcut.toLowerCase().split('+');
     return {
@@ -147,6 +157,18 @@
   }
 
   function handleKeydown(event: KeyboardEvent) {
+    // Ctrl+P: Toggle command palette (works everywhere)
+    if (event.ctrlKey && event.key === 'p') {
+      event.preventDefault();
+      commandPaletteOpen = !commandPaletteOpen;
+      return;
+    }
+
+    // Don't handle other shortcuts when command palette is open
+    if (commandPaletteOpen) {
+      return;
+    }
+
     // Don't handle shortcuts when settings modal is open (it has its own handler)
     if (settingsOpen) {
       // Only handle Escape to close settings
@@ -262,6 +284,10 @@
 
   {#if settingsOpen}
     <SettingsModal onClose={closeSettings} />
+  {/if}
+
+  {#if commandPaletteOpen}
+    <CommandPalette onSelect={handlePaletteSelect} onClose={closeCommandPalette} />
   {/if}
 </div>
 

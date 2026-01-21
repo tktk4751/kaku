@@ -124,7 +124,7 @@
       noteStore.save();
     } else if (event.ctrlKey && event.key === 'f') {
       event.preventDefault();
-      showFindBar = true;
+      showFindBar = !showFindBar;
     }
   }
 
@@ -248,7 +248,13 @@
 
   /* Live preview colors are defined in global.css for proper cascading */
 
-  /* Search panel styles */
+  /* Hide default CodeMirror search panel (we use custom FindBar) */
+  .editor-container :global(.cm-panel.cm-search),
+  .editor-container :global(.cm-search.cm-panel) {
+    display: none !important;
+  }
+
+  /* Search panel styles (kept for reference) */
   .editor-container :global(.cm-search) {
     display: flex;
     flex-wrap: wrap;
@@ -315,14 +321,24 @@
     display: none;
   }
 
-  /* Search match highlight */
+  /* Search match highlight - all matches */
   .editor-container :global(.cm-searchMatch) {
-    background: var(--accent-yellow-dim, rgba(224, 175, 104, 0.3));
+    background: color-mix(in srgb, var(--accent-orange) 35%, transparent) !important;
     border-radius: 2px;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-orange) 50%, transparent);
   }
 
-  .editor-container :global(.cm-searchMatch-selected) {
-    background: var(--accent-yellow, rgba(224, 175, 104, 0.6));
+  /* Search match highlight - current/selected match */
+  .editor-container :global(.cm-searchMatch-selected),
+  .editor-container :global(.cm-searchMatch.cm-searchMatch-selected) {
+    background: color-mix(in srgb, var(--accent-orange) 60%, transparent) !important;
+    border-radius: 2px;
+    box-shadow: 0 0 0 2px var(--accent-orange);
+  }
+
+  /* Selection match highlight (when selecting text) */
+  .editor-container :global(.cm-selectionMatch) {
+    background: color-mix(in srgb, var(--accent-cyan) 25%, transparent) !important;
     border-radius: 2px;
   }
 
