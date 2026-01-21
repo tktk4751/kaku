@@ -6,12 +6,13 @@
 use crate::infrastructure::{
     EventBusImpl, FileNoteRepository, FileSettingsRepository, FileStorage, HeadingFilenameStrategy,
 };
-use crate::services::{NoteService, SettingsService};
+use crate::services::{NoteService, SearchService, SettingsService};
 use std::sync::Arc;
 
 /// アプリケーション状態（Dependency Injection Container）
 pub struct AppState {
     pub note_service: NoteService,
+    pub search_service: SearchService,
     pub settings_service: Arc<SettingsService>,
     pub event_bus: Arc<EventBusImpl>,
 }
@@ -39,10 +40,14 @@ impl AppState {
         ));
 
         // Note Service
-        let note_service = NoteService::new(note_repository, event_bus.clone());
+        let note_service = NoteService::new(note_repository.clone(), event_bus.clone());
+
+        // Search Service
+        let search_service = SearchService::new(note_repository);
 
         Self {
             note_service,
+            search_service,
             settings_service,
             event_bus,
         }

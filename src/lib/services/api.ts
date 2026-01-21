@@ -1,6 +1,6 @@
 // Tauri API ラッパー
 import { invoke } from '@tauri-apps/api/core';
-import type { NoteDto, NoteListItemDto, Settings } from '$lib/types';
+import type { NoteDto, NoteListItemDto, SearchResultDto, Settings } from '$lib/types';
 
 export async function createNote(): Promise<NoteDto> {
   return await invoke('create_note');
@@ -20,6 +20,10 @@ export async function deleteNote(uid: string): Promise<void> {
 
 export async function listNotes(): Promise<NoteListItemDto[]> {
   return await invoke('list_notes');
+}
+
+export async function searchNotes(query: string, limit?: number): Promise<SearchResultDto[]> {
+  return await invoke('search_notes', { query, limit });
 }
 
 export async function getSettings(): Promise<Settings> {

@@ -14,6 +14,26 @@ export interface NoteListItemDto {
   updated_at: string;
 }
 
+// 検索関連
+export interface SearchResultDto {
+  uid: string;
+  title: string;
+  score: number;
+  title_matches: MatchRange[];
+  content_preview: ContentPreview | null;
+}
+
+export interface MatchRange {
+  start: number;
+  end: number;
+}
+
+export interface ContentPreview {
+  text: string;
+  match_start: number;
+  match_end: number;
+}
+
 export interface WindowGeometry {
   x: number;
   y: number;

@@ -3,9 +3,12 @@
 // SOLID: Input Validation
 // フロントエンドからの入力を信頼せず、バックエンドで検証する
 
-use super::{NoteDto, NoteListItemDto};
+use super::{NoteDto, NoteListItemDto, SearchResultDto};
 use crate::AppState;
 use tauri::State;
+
+/// クエリ長制限（DoS防止）
+const MAX_QUERY_LENGTH: usize = 200;
 
 // ===== 入力検証 =====
 
@@ -118,6 +121,34 @@ pub fn list_notes(state: State<AppState>) -> Result<Vec<NoteListItemDto>, String
         .note_service
         .list_notes()
         .map(|items| items.into_iter().map(NoteListItemDto::from).collect())
+        .map_err(|e| e.to_string())
+}
+
+/// ノートを検索
+///
+/// # Performance
+/// - nucleo fuzzy matching (skim比6倍高速)
+/// - rayon並列ファイル読み込み
+/// - memmap2高速I/O
+#[tauri::command]
+pub fn search_notes(
+    state: State<AppState>,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<SearchResultDto>, String> {
+    // クエリ長制限（DoS防止）
+    if query.len() > MAX_QUERY_LENGTH {
+        return Err(format!(
+            "Query too long: {} chars (max {} chars)",
+            query.len(),
+            MAX_QUERY_LENGTH
+        ));
+    }
+
+    state
+        .search_service
+        .search(&query, limit)
+        .map(|results| results.into_iter().map(SearchResultDto::from).collect())
         .map_err(|e| e.to_string())
 }
 

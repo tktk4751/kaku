@@ -9,7 +9,7 @@ pub mod window;
 pub mod hotkey;
 
 // コマンド関数を re-export
-pub use note::{create_note, save_note, load_note, delete_note, list_notes};
+pub use note::{create_note, save_note, load_note, delete_note, list_notes, search_notes};
 pub use settings::{get_settings, update_settings};
 pub use window::{save_window_geometry, prepare_hide, set_last_note_uid, quit_app, hide_window, toggle_maximize};
 pub use hotkey::{update_hotkey, get_current_hotkey};
@@ -57,6 +57,54 @@ impl From<NoteListItem> for NoteListItemDto {
             uid: item.uid,
             title: item.title,
             updated_at: item.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+        }
+    }
+}
+
+// ===== 検索関連 DTO =====
+
+/// 検索結果DTO
+#[derive(Debug, Clone, Serialize)]
+pub struct SearchResultDto {
+    pub uid: String,
+    pub title: String,
+    pub score: u32,
+    pub title_matches: Vec<MatchRangeDto>,
+    pub content_preview: Option<ContentPreviewDto>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MatchRangeDto {
+    pub start: u32,
+    pub end: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ContentPreviewDto {
+    pub text: String,
+    pub match_start: u32,
+    pub match_end: u32,
+}
+
+impl From<crate::domain::SearchResult> for SearchResultDto {
+    fn from(r: crate::domain::SearchResult) -> Self {
+        Self {
+            uid: r.uid,
+            title: r.title,
+            score: r.score,
+            title_matches: r
+                .title_matches
+                .into_iter()
+                .map(|m| MatchRangeDto {
+                    start: m.start,
+                    end: m.end,
+                })
+                .collect(),
+            content_preview: r.content_preview.map(|p| ContentPreviewDto {
+                text: p.text,
+                match_start: p.match_start,
+                match_end: p.match_end,
+            }),
         }
     }
 }

@@ -146,6 +146,7 @@ pub fn run() {
             commands::note::load_note,
             commands::note::delete_note,
             commands::note::list_notes,
+            commands::note::search_notes,
             // Settings commands
             commands::settings::get_settings,
             commands::settings::update_settings,

@@ -1,7 +1,10 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { noteStore } from '$lib/stores/note.svelte';
+  import { searchStore } from '$lib/stores/search.svelte';
   import ConfirmDialog from './ConfirmDialog.svelte';
+  import SearchInput from './SearchInput.svelte';
+  import SearchResults from './SearchResults.svelte';
 
   interface Props {
     isOpen: boolean;
@@ -17,7 +20,9 @@
   let deleteConfirmUid = $state<string | null>(null);
   let deleteConfirmTitle = $state('');
   let focusedIndex = $state(-1);
+  let searchFocusedIndex = $state(-1);
   let noteListElement: HTMLUListElement;
+  let searchResultsElement: HTMLUListElement;
 
   // Use plain variable to track previous state (not reactive)
   let prevIsOpen = false;
@@ -44,10 +49,63 @@
     } else if (!currentIsOpen && prevIsOpen) {
       // Sidebar just closed
       focusedIndex = -1;
+      searchFocusedIndex = -1;
+      // Clear search when closing sidebar
+      searchStore.clear();
     }
 
     prevIsOpen = currentIsOpen;
   });
+
+  // Handle search result selection
+  function handleSearchSelect(uid: string) {
+    searchStore.clear();
+    onNoteSelect(uid);
+  }
+
+  // Handle search result mouse hover
+  function handleSearchMouseEnter(index: number) {
+    if (isKeyboardNavigating) return;
+    searchFocusedIndex = index;
+  }
+
+  // Keyboard navigation for search results
+  function handleSearchKeydown(event: KeyboardEvent) {
+    if (!searchStore.isActive || searchStore.results.length === 0) return;
+
+    const count = searchStore.results.length;
+    let newIndex = searchFocusedIndex;
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        newIndex = searchFocusedIndex < count - 1 ? searchFocusedIndex + 1 : searchFocusedIndex;
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        newIndex = searchFocusedIndex > 0 ? searchFocusedIndex - 1 : 0;
+        break;
+      case 'Enter':
+        event.preventDefault();
+        if (searchFocusedIndex >= 0 && searchFocusedIndex < count) {
+          handleSearchSelect(searchStore.results[searchFocusedIndex].uid);
+        }
+        return;
+      case 'Escape':
+        event.preventDefault();
+        searchStore.clear();
+        return;
+    }
+
+    if (newIndex !== searchFocusedIndex) {
+      isKeyboardNavigating = true;
+      if (keyboardNavTimeout) clearTimeout(keyboardNavTimeout);
+      keyboardNavTimeout = setTimeout(() => {
+        isKeyboardNavigating = false;
+      }, 150);
+      searchFocusedIndex = newIndex;
+    }
+  }
 
   function handleListKeydown(event: KeyboardEvent) {
     const noteCount = noteStore.noteList.length;
@@ -177,7 +235,27 @@
     </button>
   </header>
 
-  <ul
+  <!-- Search Bar -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div onkeydown={handleSearchKeydown}>
+    <SearchInput
+      value={searchStore.query}
+      onInput={(v) => searchStore.setQuery(v)}
+      onClear={() => searchStore.clear()}
+      isSearching={searchStore.isSearching}
+    />
+  </div>
+
+  <!-- Search Results or Note List -->
+  {#if searchStore.isActive}
+    <SearchResults
+      results={searchStore.results}
+      onSelect={handleSearchSelect}
+      focusedIndex={searchFocusedIndex}
+      onMouseEnter={handleSearchMouseEnter}
+    />
+  {:else}
+    <ul
     class="note-list"
     role="listbox"
     aria-labelledby="sidebar-title"
@@ -219,6 +297,7 @@
       <li class="empty-state" role="option" aria-selected="false" aria-disabled="true">No notes yet</li>
     {/each}
   </ul>
+  {/if}
 
   <footer class="sidebar-footer">
     <button class="settings-btn" onclick={onOpenSettings} aria-label="Open settings">
