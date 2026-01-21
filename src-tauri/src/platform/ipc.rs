@@ -35,10 +35,33 @@ pub fn is_instance_running() -> bool {
     send_command("ping").is_ok()
 }
 
-/// IPCサーバーを起動
+/// IPCコールバック
+pub struct IpcCallbacks<T, S>
+where
+    T: Fn() + Send + Sync + 'static,
+    S: Fn() + Send + Sync + 'static,
+{
+    pub on_toggle: T,
+    pub on_show: S,
+}
+
+/// IPCサーバーを起動（従来互換: toggle のみ）
 pub fn start_ipc_server<F>(on_toggle: F) -> Result<(), String>
 where
-    F: Fn() + Send + Sync + 'static,
+    F: Fn() + Send + Sync + Clone + 'static,
+{
+    let on_toggle_clone = on_toggle.clone();
+    start_ipc_server_with_callbacks(IpcCallbacks {
+        on_toggle,
+        on_show: move || on_toggle_clone(), // show も toggle にフォールバック
+    })
+}
+
+/// IPCサーバーを起動（完全版: toggle と show を別々に処理）
+pub fn start_ipc_server_with_callbacks<T, S>(callbacks: IpcCallbacks<T, S>) -> Result<(), String>
+where
+    T: Fn() + Send + Sync + 'static,
+    S: Fn() + Send + Sync + 'static,
 {
     let socket_path = get_socket_path();
 
@@ -50,15 +73,17 @@ where
 
     println!("[IPC] Server listening on {:?}", socket_path);
 
-    let on_toggle = Arc::new(on_toggle);
+    let on_toggle = Arc::new(callbacks.on_toggle);
+    let on_show = Arc::new(callbacks.on_show);
 
     thread::spawn(move || {
         for stream in listener.incoming() {
             match stream {
                 Ok(stream) => {
                     let on_toggle = Arc::clone(&on_toggle);
+                    let on_show = Arc::clone(&on_show);
                     thread::spawn(move || {
-                        handle_client(stream, &*on_toggle);
+                        handle_client(stream, &*on_toggle, &*on_show);
                     });
                 }
                 Err(e) => {
@@ -71,9 +96,10 @@ where
     Ok(())
 }
 
-fn handle_client<F>(stream: UnixStream, on_toggle: &F)
+fn handle_client<T, S>(stream: UnixStream, on_toggle: &T, on_show: &S)
 where
-    F: Fn(),
+    T: Fn(),
+    S: Fn(),
 {
     let mut reader = BufReader::new(&stream);
     let mut writer = &stream;
@@ -90,7 +116,8 @@ where
                 "toggled".to_string()
             }
             "show" => {
-                on_toggle(); // TODO: implement show-only
+                // show-only: ウィンドウを表示するのみ（非表示状態からのみ動作）
+                on_show();
                 "shown".to_string()
             }
             _ => "unknown command".to_string(),

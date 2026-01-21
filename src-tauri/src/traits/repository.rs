@@ -30,14 +30,67 @@ pub struct NoteListItem {
 }
 
 /// リポジトリエラー
+///
+/// # エラーコンテキスト
+///
+/// 各バリアントは操作のコンテキスト情報を含み、
+/// デバッグやエラーレポートに役立ちます。
 #[derive(Debug, Error)]
 pub enum RepositoryError {
-    #[error("メモが見つかりません: {0}")]
-    NotFound(String),
-    #[error("ストレージエラー: {0}")]
-    Storage(#[from] crate::traits::StorageError),
-    #[error("パースエラー: {0}")]
-    Parse(String),
-    #[error("ファイル名生成エラー: {0}")]
-    FilenameGeneration(String),
+    /// 指定されたUIDのメモが見つからない
+    #[error("メモが見つかりません: uid={uid}")]
+    NotFound {
+        uid: String,
+    },
+    /// ストレージ層でのエラー
+    #[error("ストレージエラー: {context} - {source}")]
+    Storage {
+        context: String,
+        #[source]
+        source: crate::traits::StorageError,
+    },
+    /// ファイル内容のパースエラー
+    #[error("パースエラー: {context} (path={path:?})")]
+    Parse {
+        context: String,
+        path: Option<PathBuf>,
+    },
+    /// ファイル名生成の失敗
+    #[error("ファイル名生成エラー: {reason}")]
+    FilenameGeneration {
+        reason: String,
+    },
+}
+
+impl RepositoryError {
+    /// NotFoundエラーを作成
+    pub fn not_found(uid: impl Into<String>) -> Self {
+        Self::NotFound { uid: uid.into() }
+    }
+
+    /// StorageErrorからの変換（コンテキスト付き）
+    pub fn storage(context: impl Into<String>, source: crate::traits::StorageError) -> Self {
+        Self::Storage {
+            context: context.into(),
+            source,
+        }
+    }
+
+    /// パースエラーを作成
+    pub fn parse(context: impl Into<String>, path: Option<PathBuf>) -> Self {
+        Self::Parse {
+            context: context.into(),
+            path,
+        }
+    }
+}
+
+// StorageError からの自動変換（後方互換性）
+impl From<crate::traits::StorageError> for RepositoryError {
+    fn from(err: crate::traits::StorageError) -> Self {
+        Self::Storage {
+            context: "storage operation".to_string(),
+            source: err,
+        }
+    }
 }

@@ -57,6 +57,7 @@ impl WindowManager {
     }
 
     /// ウィンドウからジオメトリを取得（ポップアップウィンドウ用）
+    #[allow(deprecated)]
     pub fn get_geometry<R: Runtime>(
         window: &WebviewWindow<R>,
     ) -> Result<WindowGeometry, tauri::Error> {
@@ -68,7 +69,7 @@ impl WindowManager {
             y: position.y,
             width: size.width,
             height: size.height,
-            is_maximized: false, // ポップアップは最大化しない
+            is_maximized: false, // 非推奨フィールド、常にfalse
         })
     }
 

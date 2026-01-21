@@ -2,19 +2,41 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// ウィンドウジオメトリ設定
-/// ポップアップウィンドウ用（最大化なし）
+///
+/// ポップアップスタイルのウィンドウ用。最大化は非サポート。
+///
+/// # フィールド
+///
+/// - `x`, `y`: ウィンドウ位置（-1 = 中央配置）
+/// - `width`, `height`: ウィンドウサイズ
+/// - `is_maximized`: **非推奨** - 後方互換性のみ、常に無視される
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct WindowGeometry {
     pub x: i32,
     pub y: i32,
     pub width: u32,
     pub height: u32,
-    /// 後方互換性のため残すが無視する
+    /// **非推奨**: このフィールドは後方互換性のために存在しますが、
+    /// アプリケーションでは使用されません。
+    ///
+    /// # 理由
+    ///
+    /// kakuはポップアップスタイルのメモアプリであり、
+    /// 最大化はUXとして適切ではないため、この機能は削除されました。
+    /// 既存の設定ファイルとの互換性を保つため、フィールドは残されていますが、
+    /// 読み込み時のみ受け付け、保存時には出力されません。
+    ///
+    /// # 移行
+    ///
+    /// このフィールドは将来のバージョンで完全に削除される予定です。
+    /// 設定ファイルからこのフィールドを手動で削除しても問題ありません。
     #[serde(default, skip_serializing)]
+    #[deprecated(since = "0.2.0", note = "最大化機能は削除されました。このフィールドは無視されます。")]
     pub is_maximized: bool,
 }
 
 impl Default for WindowGeometry {
+    #[allow(deprecated)]
     fn default() -> Self {
         Self {
             x: -1, // -1 = 中央配置を示す特別な値

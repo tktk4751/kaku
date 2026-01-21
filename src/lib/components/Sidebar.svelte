@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { noteStore } from '$lib/stores/note.svelte';
   import ConfirmDialog from './ConfirmDialog.svelte';
 
@@ -18,38 +19,88 @@
   let focusedIndex = $state(-1);
   let noteListElement: HTMLUListElement;
 
-  // Reset focused index when sidebar opens
+  // Use plain variable to track previous state (not reactive)
+  let prevIsOpen = false;
+
+  // Track if user is using keyboard navigation (to ignore mouse events during scroll)
+  let isKeyboardNavigating = false;
+  let keyboardNavTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  // Reset focused index only when sidebar opens
   $effect(() => {
-    if (isOpen) {
-      // Focus the current note if it exists, otherwise focus first item
-      const currentIndex = noteStore.noteList.findIndex(n => n.uid === noteStore.currentNote?.uid);
-      focusedIndex = currentIndex >= 0 ? currentIndex : 0;
+    const currentIsOpen = isOpen;
+
+    if (currentIsOpen && !prevIsOpen) {
+      // Sidebar just opened - initialize focusedIndex
+      untrack(() => {
+        const currentIndex = noteStore.noteList.findIndex(n => n.uid === noteStore.currentNote?.uid);
+        focusedIndex = currentIndex >= 0 ? currentIndex : 0;
+      });
       // Focus the list element for keyboard navigation
-      setTimeout(() => noteListElement?.focus(), 50);
-    } else {
+      setTimeout(() => {
+        noteListElement?.focus();
+        scrollToIndex(focusedIndex);
+      }, 50);
+    } else if (!currentIsOpen && prevIsOpen) {
+      // Sidebar just closed
       focusedIndex = -1;
     }
+
+    prevIsOpen = currentIsOpen;
   });
 
   function handleListKeydown(event: KeyboardEvent) {
     const noteCount = noteStore.noteList.length;
     if (noteCount === 0) return;
 
+    let newIndex = focusedIndex;
+
     switch (event.key) {
       case 'ArrowDown':
         event.preventDefault();
-        focusedIndex = (focusedIndex + 1) % noteCount;
+        if (focusedIndex < noteCount - 1) {
+          newIndex = focusedIndex + 1;
+        }
         break;
       case 'ArrowUp':
         event.preventDefault();
-        focusedIndex = focusedIndex <= 0 ? noteCount - 1 : focusedIndex - 1;
+        if (focusedIndex > 0) {
+          newIndex = focusedIndex - 1;
+        }
         break;
       case 'Enter':
         event.preventDefault();
         if (focusedIndex >= 0 && focusedIndex < noteCount) {
           onNoteSelect(noteStore.noteList[focusedIndex].uid);
         }
-        break;
+        return;
+    }
+
+    if (newIndex !== focusedIndex) {
+      // Mark as keyboard navigating to ignore mouse events during scroll
+      isKeyboardNavigating = true;
+      if (keyboardNavTimeout) clearTimeout(keyboardNavTimeout);
+      keyboardNavTimeout = setTimeout(() => {
+        isKeyboardNavigating = false;
+      }, 150);
+
+      focusedIndex = newIndex;
+      requestAnimationFrame(() => scrollToIndex(newIndex));
+    }
+  }
+
+  function handleMouseEnter(index: number) {
+    // Ignore mouse events during keyboard navigation (prevents scroll-back issue)
+    if (isKeyboardNavigating) return;
+    focusedIndex = index;
+  }
+
+  function scrollToIndex(index: number) {
+    if (!noteListElement || index < 0) return;
+    const items = noteListElement.querySelectorAll('.note-item-wrapper');
+    const targetElement = items[index];
+    if (targetElement) {
+      targetElement.scrollIntoView({ block: 'nearest', behavior: 'instant' });
     }
   }
 
@@ -79,6 +130,11 @@
       event.preventDefault();
       onNoteSelect(uid);
     }
+  }
+
+  function handleNoteClick(index: number, uid: string) {
+    focusedIndex = index;
+    onNoteSelect(uid);
   }
 
   function handleDeleteClick(event: MouseEvent, uid: string, title: string) {
@@ -130,16 +186,17 @@
     onkeydown={handleListKeydown}
   >
     {#each noteStore.noteList as item, index (item.uid)}
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
       <li
         class="note-item-wrapper"
         class:focused={focusedIndex === index}
         role="option"
         aria-selected={noteStore.currentNote?.uid === item.uid}
+        onmouseenter={() => handleMouseEnter(index)}
       >
         <button
           class="note-item"
-          class:active={noteStore.currentNote?.uid === item.uid}
-          onclick={() => onNoteSelect(item.uid)}
+          onclick={() => handleNoteClick(index, item.uid)}
           onkeydown={(e) => handleKeydown(e, item.uid)}
           aria-label="{item.title || 'Untitled'}, updated {formatDate(item.updated_at)}"
         >
@@ -248,6 +305,8 @@
     overflow-y: auto;
     padding: 8px;
     outline: none;
+    /* Prevent scroll chaining to parent elements */
+    overscroll-behavior: contain;
   }
 
   .note-item-wrapper {
@@ -255,19 +314,18 @@
     align-items: stretch;
     border-radius: 6px;
     transition: background 0.15s;
+    position: relative;
   }
 
-  .note-item-wrapper:hover,
-  .note-item-wrapper.focused {
-    background: var(--bg-highlight);
-  }
-
+  /* Show delete button on hover or focus */
   .note-item-wrapper:hover .delete-btn,
   .note-item-wrapper.focused .delete-btn {
     opacity: 1;
   }
 
+  /* Selection/focus state - only one style for both hover and keyboard */
   .note-item-wrapper.focused {
+    background: var(--bg-highlight);
     outline: 2px solid var(--accent-blue);
     outline-offset: -2px;
   }
@@ -283,8 +341,10 @@
     min-width: 0;
   }
 
-  .note-item.active {
-    background: var(--bg-tertiary);
+  /* Disable default focus outline - we use wrapper's focused class instead */
+  .note-item:focus,
+  .note-item:focus-visible {
+    outline: none;
   }
 
   .delete-btn {
@@ -296,6 +356,12 @@
     color: var(--fg-muted);
     transition: all 0.15s;
     border-radius: 0 6px 6px 0;
+  }
+
+  /* Disable default focus outline on delete button */
+  .delete-btn:focus,
+  .delete-btn:focus-visible {
+    outline: none;
   }
 
   .delete-btn:hover {

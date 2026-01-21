@@ -152,6 +152,8 @@
   .editor-container {
     flex: 1 1 0;
     min-height: 0;
+    /* Allow CodeMirror to handle its own scrolling */
+    overflow: visible;
   }
 
   /* CodeMirror container styles */
@@ -167,6 +169,8 @@
     overflow: auto !important;
     height: 100%;
     padding: 12px 0 16px 0;
+    /* Prevent scroll chaining to parent elements */
+    overscroll-behavior: contain;
   }
 
   .editor-container :global(.cm-gutters) {
@@ -199,10 +203,30 @@
     background-color: transparent;
   }
 
-  .editor-container :global(.cm-selectionBackground),
+  /* Selection background - only show when focused */
+  .editor-container :global(.cm-selectionBackground) {
+    background-color: transparent !important;
+  }
+
   .editor-container :global(.cm-focused .cm-selectionBackground),
   .editor-container :global(.cm-content ::selection) {
     background-color: var(--editor-selection) !important;
+  }
+
+  /* Hide drop cursor indicator */
+  .editor-container :global(.cm-dropCursor) {
+    border-left-color: transparent !important;
+  }
+
+  /* Hide placeholder */
+  .editor-container :global(.cm-placeholder) {
+    display: none !important;
+  }
+
+  /* Hide gap cursor */
+  .editor-container :global(.cm-gap-cursor),
+  .editor-container :global(.cm-gapcursor) {
+    display: none !important;
   }
 
   /* Live preview colors are defined in global.css for proper cascading */
@@ -210,5 +234,11 @@
   /* Focus styles */
   .editor-container :global(.cm-editor.cm-focused) {
     outline: none;
+  }
+
+  /* Remove any dotted outlines */
+  .editor-container :global(.cm-line:focus),
+  .editor-container :global(.cm-content:focus) {
+    outline: none !important;
   }
 </style>

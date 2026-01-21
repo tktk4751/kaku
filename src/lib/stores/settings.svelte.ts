@@ -1,8 +1,13 @@
 // 設定ストア (Svelte 5 runes)
+//
+// SOLID: Single Responsibility
+// - データ層（内部状態）とアクション層（公開API）を分離
+// - 外部インターフェースは変更なし（後方互換性維持）
+
 import { getSettings, updateSettings, updateHotkey, getCurrentHotkey, type SettingsUpdate } from '$lib/services/api';
 import type { Settings } from '$lib/types';
 
-// デフォルト設定
+// ===== 定数 =====
 const defaultSettings: Settings = {
   window: { x: 100, y: 100, width: 800, height: 600, is_maximized: false },
   storage_directory: '',
@@ -16,12 +21,23 @@ const defaultSettings: Settings = {
   last_note_uid: null,
 };
 
+// ===== 内部データ層（外部非公開）=====
 let settings = $state<Settings>(defaultSettings);
 let isLoaded = $state(false);
 let isSaving = $state(false);
 
+// ===== 内部データ操作（テスト用にエクスポート）=====
+export const _internal = {
+  setSettings(s: Settings) { settings = s; },
+  setIsLoaded(loaded: boolean) { isLoaded = loaded; },
+  setIsSaving(saving: boolean) { isSaving = saving; },
+  getDefaultSettings() { return defaultSettings; },
+};
+
+// ===== 公開API（既存と完全互換）=====
 export function useSettingsStore() {
   return {
+    // Getters（変更なし）
     get settings() { return settings; },
     get isLoaded() { return isLoaded; },
     get isSaving() { return isSaving; },

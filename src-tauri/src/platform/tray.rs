@@ -1,9 +1,23 @@
 use super::hotkey::{mark_window_hidden, mark_window_visible, is_window_visible};
 use tauri::{
+    image::Image,
     menu::{Menu, MenuItem},
     tray::{TrayIcon, TrayIconBuilder},
     AppHandle, Emitter, Manager, Runtime,
 };
+
+// トレイアイコン画像をコンパイル時に埋め込み
+static TRAY_ICON_PNG: &[u8] = include_bytes!("../../../kaku.png");
+
+/// PNGデータをRGBAに変換してTauri Image作成
+fn load_tray_icon() -> Image<'static> {
+    use image::GenericImageView;
+    let img = image::load_from_memory(TRAY_ICON_PNG)
+        .expect("Failed to decode tray icon PNG");
+    let (width, height) = img.dimensions();
+    let rgba = img.to_rgba8().into_raw();
+    Image::new_owned(rgba, width, height)
+}
 
 /// システムトレイをセットアップ
 pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<TrayIcon<R>, tauri::Error> {
@@ -17,7 +31,7 @@ pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<TrayIcon<R>, tauri::
 
     // トレイアイコン作成
     let tray = TrayIconBuilder::new()
-        .icon(app.default_window_icon().cloned().unwrap())
+        .icon(load_tray_icon())
         .tooltip("kaku - クリックで表示/非表示")
         .menu(&menu)
         .on_menu_event(|app, event| {

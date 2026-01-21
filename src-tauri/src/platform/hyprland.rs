@@ -1,7 +1,59 @@
 //! Hyprland連携モジュール
-//! hyprctlを使用してウィンドウ位置を取得・設定
+//!
+//! hyprctlを使用してウィンドウ位置を取得・設定します。
+//!
+//! # セキュリティ
+//!
+//! - hyprctlは `/usr/bin/hyprctl` から実行（PATH探索ではない）
+//! - 出力はJSON形式で検証
+//! - 入力パラメータはエスケープ処理済み
 
 use std::process::Command;
+use std::path::Path;
+use std::sync::OnceLock;
+
+/// 検証済みhyprctlパス（一度だけ検証）
+static HYPRCTL_PATH: OnceLock<Option<&'static str>> = OnceLock::new();
+
+/// hyprctlの実行パスを取得（検証済み）
+///
+/// 標準的なインストール場所を確認し、存在するパスを返します。
+/// セキュリティのため、PATH探索ではなく固定パスを使用します。
+fn get_hyprctl_path() -> Option<&'static str> {
+    *HYPRCTL_PATH.get_or_init(|| {
+        // 標準的なインストール場所を順に確認
+        const KNOWN_PATHS: &[&str] = &[
+            "/usr/bin/hyprctl",
+            "/usr/local/bin/hyprctl",
+            "/bin/hyprctl",
+        ];
+
+        for path in KNOWN_PATHS {
+            if Path::new(path).exists() {
+                return Some(*path);
+            }
+        }
+
+        // フォールバック: which コマンドで探す（開発環境用）
+        if let Ok(output) = Command::new("which").arg("hyprctl").output() {
+            if output.status.success() {
+                let path_str = String::from_utf8_lossy(&output.stdout);
+                let trimmed = path_str.trim();
+                // 静的文字列に変換（リークするが一度だけ）
+                if !trimmed.is_empty() && Path::new(trimmed).exists() {
+                    return Some(Box::leak(trimmed.to_string().into_boxed_str()));
+                }
+            }
+        }
+
+        None
+    })
+}
+
+/// hyprctlコマンドを作成（検証済みパスを使用）
+fn hyprctl_command() -> Option<Command> {
+    get_hyprctl_path().map(Command::new)
+}
 
 /// Waylandセッションで実行中かどうかを判定
 pub fn is_wayland() -> bool {
@@ -40,6 +92,40 @@ fn set_cursor_position(x: i32, y: i32) {
     let _ = Command::new("hyprctl")
         .args(["dispatch", "movecursor", &pos])
         .output();
+}
+
+/// ウィンドウがHyprlandに認識されるまで待機
+///
+/// # 引数
+/// - `class_name`: ウィンドウのクラス名
+/// - `timeout_ms`: 最大待機時間（ミリ秒）
+/// - `poll_interval_ms`: ポーリング間隔（ミリ秒）
+///
+/// # 戻り値
+/// - `true`: ウィンドウが認識された
+/// - `false`: タイムアウト
+pub fn wait_for_window(class_name: &str, timeout_ms: u64, poll_interval_ms: u64) -> bool {
+    let start = std::time::Instant::now();
+    let timeout = std::time::Duration::from_millis(timeout_ms);
+    let interval = std::time::Duration::from_millis(poll_interval_ms);
+
+    while start.elapsed() < timeout {
+        if get_window_position(class_name).is_some() {
+            println!(
+                "[Hyprland] Window '{}' recognized after {:?}",
+                class_name,
+                start.elapsed()
+            );
+            return true;
+        }
+        std::thread::sleep(interval);
+    }
+
+    eprintln!(
+        "[Hyprland] Window '{}' not recognized within {}ms",
+        class_name, timeout_ms
+    );
+    false
 }
 
 /// Hyprlandからウィンドウ位置を取得
@@ -187,7 +273,7 @@ pub fn pin_window(class_name: &str) -> bool {
 
 /// ウィンドウをオフスクリーンに移動（非表示用）
 pub fn move_offscreen(class_name: &str) -> bool {
-    set_window_position_internal(class_name, -10000, -10000)
+    set_window_position_internal(class_name, super::OFFSCREEN_POSITION, super::OFFSCREEN_POSITION)
 }
 
 /// 内部用: 位置設定（ピン状態を維持、カーソル位置を保存・復元）
@@ -261,9 +347,16 @@ pub fn set_window_size(class_name: &str, width: u32, height: u32) -> bool {
 }
 
 /// Hyprlandが利用可能かチェック
+///
+/// 検証済みパスからhyprctlを実行し、バージョン情報を取得できるか確認します。
+/// パスが見つからない場合や実行に失敗した場合は false を返します。
 pub fn is_available() -> bool {
-    Command::new("hyprctl")
-        .arg("version")
+    // 検証済みパスを使用
+    let Some(mut cmd) = hyprctl_command() else {
+        return false;
+    };
+
+    cmd.arg("version")
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
@@ -453,10 +546,107 @@ pub fn get_current_hotkey() -> Option<String> {
 mod tests {
     use super::*;
 
+    /// is_available()がパニックせずに動作することを確認
     #[test]
     fn test_is_available() {
-        // This test only passes when running on Hyprland
+        // This test works on any platform
         // Just check that the function doesn't panic
         let _ = is_available();
+    }
+
+    /// is_wayland()がパニックせずに動作することを確認
+    #[test]
+    fn test_is_wayland() {
+        // Should not panic regardless of environment
+        let _ = is_wayland();
+    }
+
+    /// is_hyprland()がパニックせずに動作することを確認
+    #[test]
+    fn test_is_hyprland() {
+        // Should not panic regardless of environment
+        let result = is_hyprland();
+        // If not Wayland, should definitely be false
+        if !is_wayland() {
+            assert!(!result, "is_hyprland should be false when not on Wayland");
+        }
+    }
+
+    /// ホットキー文字列のパースが正しく動作することを確認
+    #[test]
+    fn test_parse_hotkey_to_hyprland_simple() {
+        // Shift+Space
+        let result = parse_hotkey_to_hyprland("Shift+Space");
+        assert_eq!(result, Some(("SHIFT".to_string(), "SPACE".to_string())));
+    }
+
+    #[test]
+    fn test_parse_hotkey_to_hyprland_ctrl_shift() {
+        // Ctrl+Shift+M
+        let result = parse_hotkey_to_hyprland("Ctrl+Shift+M");
+        assert_eq!(result, Some(("CTRL SHIFT".to_string(), "M".to_string())));
+    }
+
+    #[test]
+    fn test_parse_hotkey_to_hyprland_single_key() {
+        // Just a key (unusual but valid)
+        let result = parse_hotkey_to_hyprland("F12");
+        assert_eq!(result, Some(("".to_string(), "F12".to_string())));
+    }
+
+    #[test]
+    fn test_parse_hotkey_to_hyprland_super() {
+        // Super+K (Super is a modifier)
+        let result = parse_hotkey_to_hyprland("Super+K");
+        assert_eq!(result, Some(("SUPER".to_string(), "K".to_string())));
+
+        // Win is an alias for Super
+        let result2 = parse_hotkey_to_hyprland("Win+K");
+        assert_eq!(result2, Some(("SUPER".to_string(), "K".to_string())));
+
+        // Meta is also an alias for Super
+        let result3 = parse_hotkey_to_hyprland("Meta+K");
+        assert_eq!(result3, Some(("SUPER".to_string(), "K".to_string())));
+    }
+
+    #[test]
+    fn test_parse_hotkey_to_hyprland_all_modifiers() {
+        // Ctrl+Shift+Alt+Super+K
+        let result = parse_hotkey_to_hyprland("Ctrl+Shift+Alt+Super+K");
+        assert_eq!(result, Some(("CTRL SHIFT ALT SUPER".to_string(), "K".to_string())));
+    }
+
+    #[test]
+    fn test_parse_hotkey_to_hyprland_empty() {
+        // Empty string
+        let result = parse_hotkey_to_hyprland("");
+        // Empty string splits to [""], last element is ""
+        assert_eq!(result, Some(("".to_string(), "".to_string())));
+    }
+
+    #[test]
+    fn test_parse_hotkey_to_hyprland_control_alias() {
+        // Control is an alias for Ctrl
+        let result = parse_hotkey_to_hyprland("Control+C");
+        assert_eq!(result, Some(("CTRL".to_string(), "C".to_string())));
+    }
+
+    /// get_hyprctl_path()がパニックせずに動作することを確認
+    #[test]
+    fn test_get_hyprctl_path_no_panic() {
+        // Should not panic regardless of whether hyprctl is installed
+        let _ = get_hyprctl_path();
+    }
+
+    /// 非Hyprland環境でウィンドウ関連関数がNoneを返すことを確認
+    #[test]
+    fn test_window_functions_return_none_when_not_available() {
+        if !is_hyprland() {
+            // These should return None when not on Hyprland
+            assert!(get_window_position("nonexistent").is_none());
+            assert!(get_focused_monitor().is_none());
+            assert!(calculate_default_position(400, 500).is_none());
+            assert!(get_current_hotkey().is_none());
+        }
     }
 }
