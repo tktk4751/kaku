@@ -5,10 +5,12 @@
   import { settingsStore } from '$lib/stores/settings.svelte';
   import { createEditor, setEditorContent, focusEditor } from '$lib/editor/setup';
   import type { EditorView } from '@codemirror/view';
+  import FindBar from './FindBar.svelte';
 
   let editorContainer: HTMLDivElement;
-  let editorView: EditorView | null = null;
+  let editorView = $state<EditorView | null>(null);
   let isUpdatingFromStore = false;
+  let showFindBar = $state(false);
 
   // Track previous settings (plain variables, not reactive)
   let prevTheme: string | null = null;
@@ -115,16 +117,28 @@
     }
   });
 
-  // Handle Ctrl+S for save
+  // Handle keyboard shortcuts
   function handleKeydown(event: KeyboardEvent) {
     if (event.ctrlKey && event.key === 's') {
       event.preventDefault();
       noteStore.save();
+    } else if (event.ctrlKey && event.key === 'f') {
+      event.preventDefault();
+      showFindBar = true;
     }
   }
 
-  // Ensure editor focus on click - always focus to handle edge cases
-  function handleClick() {
+  function handleCloseFindBar() {
+    showFindBar = false;
+  }
+
+  // Ensure editor focus on click - but not when clicking find bar
+  function handleClick(e: MouseEvent) {
+    // Don't focus editor if clicking inside find-bar
+    const target = e.target as HTMLElement;
+    if (target.closest('.find-bar')) {
+      return;
+    }
     if (editorView) {
       editorView.focus();
     }
@@ -136,6 +150,9 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="editor-wrapper" onclick={handleClick}>
+  {#if showFindBar}
+    <FindBar {editorView} onClose={handleCloseFindBar} />
+  {/if}
   <div class="editor-container" bind:this={editorContainer}></div>
 </div>
 
@@ -230,6 +247,84 @@
   }
 
   /* Live preview colors are defined in global.css for proper cascading */
+
+  /* Search panel styles */
+  .editor-container :global(.cm-search) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .editor-container :global(.cm-search label) {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--fg-secondary);
+  }
+
+  .editor-container :global(.cm-search input[type="checkbox"]) {
+    margin: 0;
+    accent-color: var(--accent-blue);
+  }
+
+  .editor-container :global(.cm-search .cm-textfield) {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--fg-primary);
+    font-size: 13px;
+    padding: 4px 8px;
+    outline: none;
+    min-width: 150px;
+  }
+
+  .editor-container :global(.cm-search .cm-textfield:focus) {
+    border-color: var(--accent-blue);
+  }
+
+  .editor-container :global(.cm-search .cm-textfield::placeholder) {
+    color: var(--fg-muted);
+  }
+
+  .editor-container :global(.cm-search button) {
+    background: var(--bg-highlight);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--fg-secondary);
+    font-size: 12px;
+    padding: 4px 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .editor-container :global(.cm-search button:hover) {
+    background: var(--bg-primary);
+    color: var(--fg-primary);
+  }
+
+  .editor-container :global(.cm-search button[name="close"]) {
+    padding: 4px 6px;
+  }
+
+  .editor-container :global(.cm-search br) {
+    display: none;
+  }
+
+  /* Search match highlight */
+  .editor-container :global(.cm-searchMatch) {
+    background: var(--accent-yellow-dim, rgba(224, 175, 104, 0.3));
+    border-radius: 2px;
+  }
+
+  .editor-container :global(.cm-searchMatch-selected) {
+    background: var(--accent-yellow, rgba(224, 175, 104, 0.6));
+    border-radius: 2px;
+  }
 
   /* Focus styles */
   .editor-container :global(.cm-editor.cm-focused) {
