@@ -248,6 +248,16 @@
 
   <!-- Search Results or Note List -->
   {#if searchStore.isActive}
+    <!-- Announce search results to screen readers -->
+    <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+      {#if searchStore.isSearching}
+        Searching...
+      {:else if searchStore.results.length === 0}
+        No results found
+      {:else}
+        {searchStore.results.length} {searchStore.results.length === 1 ? 'result' : 'results'} found
+      {/if}
+    </div>
     <SearchResults
       results={searchStore.results}
       onSelect={handleSearchSelect}
@@ -323,6 +333,19 @@
 {/if}
 
 <style>
+  /* Screen-reader only content */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
   .backdrop {
     position: fixed;
     inset: 0;

@@ -130,6 +130,24 @@ pub fn update_settings(state: State<AppState>, settings: SettingsUpdateDto) -> R
             if let Some(shortcut) = settings.shortcut_open_settings {
                 s.shortcuts.open_settings = shortcut;
             }
+            if let Some(shortcut) = settings.shortcut_command_palette {
+                s.shortcuts.command_palette = shortcut;
+            }
+            if let Some(shortcut) = settings.shortcut_history_back {
+                s.shortcuts.history_back = shortcut;
+            }
+            if let Some(shortcut) = settings.shortcut_history_forward {
+                s.shortcuts.history_forward = shortcut;
+            }
+            if let Some(shortcut) = settings.shortcut_save_note {
+                s.shortcuts.save_note = shortcut;
+            }
+            if let Some(shortcut) = settings.shortcut_find_in_note {
+                s.shortcuts.find_in_note = shortcut;
+            }
+            if let Some(shortcut) = settings.shortcut_backlink_panel {
+                s.shortcuts.backlink_panel = shortcut;
+            }
         })
         .map_err(|e| e.to_string())
 }

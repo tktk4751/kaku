@@ -147,6 +147,10 @@ pub fn run() {
             commands::note::delete_note,
             commands::note::list_notes,
             commands::note::search_notes,
+            commands::note::resolve_wiki_link,
+            // Backlink commands
+            commands::backlink::get_backlinks,
+            commands::backlink::rebuild_backlink_index,
             // Settings commands
             commands::settings::get_settings,
             commands::settings::update_settings,

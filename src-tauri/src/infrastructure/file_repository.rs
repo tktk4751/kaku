@@ -135,7 +135,7 @@ impl FileNoteRepository {
         for path in files {
             if let Ok(content) = self.storage.load(&path) {
                 if let Ok(note) = Note::from_file_content(&content) {
-                    cache.insert(note.metadata.uid.clone(), path);
+                    cache.insert(note.metadata.uid, path);
                 }
             }
         }
@@ -249,10 +249,9 @@ impl NoteRepository for FileNoteRepository {
                 for file_path in files {
                     if let Ok(content) = self.storage.load(&file_path) {
                         if let Ok(note) = Note::from_file_content(&content) {
-                            let note_uid = note.metadata.uid.clone();
-                            discovered_entries.push((note_uid.clone(), file_path.clone()));
+                            discovered_entries.push((note.metadata.uid.clone(), file_path.clone()));
 
-                            if note_uid == uid {
+                            if note.metadata.uid == uid {
                                 found_path = Some(file_path);
                                 break;
                             }
@@ -273,8 +272,7 @@ impl NoteRepository for FileNoteRepository {
         };
 
         let content = self.storage.load(&path)?;
-        Note::from_file_content(&content)
-            .map_err(|e| RepositoryError::parse(e.to_string(), Some(path)))
+        Note::from_file_content(&content).map_err(|_| RepositoryError::not_found(uid))
     }
 
     fn delete(&self, uid: &str) -> Result<(), RepositoryError> {

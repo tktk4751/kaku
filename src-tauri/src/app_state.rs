@@ -6,13 +6,14 @@
 use crate::infrastructure::{
     EventBusImpl, FileNoteRepository, FileSettingsRepository, FileStorage, HeadingFilenameStrategy,
 };
-use crate::services::{NoteService, SearchService, SettingsService};
+use crate::services::{BacklinkService, NoteService, SearchService, SettingsService};
 use std::sync::Arc;
 
 /// アプリケーション状態（Dependency Injection Container）
 pub struct AppState {
     pub note_service: NoteService,
     pub search_service: SearchService,
+    pub backlink_service: Arc<BacklinkService>,
     pub settings_service: Arc<SettingsService>,
     pub event_bus: Arc<EventBusImpl>,
 }
@@ -43,11 +44,20 @@ impl AppState {
         let note_service = NoteService::new(note_repository.clone(), event_bus.clone());
 
         // Search Service
-        let search_service = SearchService::new(note_repository);
+        let search_service = SearchService::new(note_repository.clone());
+
+        // Backlink Service
+        let backlink_service = Arc::new(BacklinkService::new(note_repository));
+
+        // Build initial backlink index
+        if let Err(e) = backlink_service.rebuild_index() {
+            eprintln!("[AppState] Failed to build backlink index: {}", e);
+        }
 
         Self {
             note_service,
             search_service,
+            backlink_service,
             settings_service,
             event_bus,
         }

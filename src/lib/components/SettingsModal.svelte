@@ -22,10 +22,17 @@
   let hotkey = $state(settingsStore.settings.hotkey);
   let hotkeyError = $state('');
 
-  // Shortcuts
+  // Shortcuts - Page level
   let shortcutNewNote = $state(settingsStore.settings.shortcuts?.new_note ?? 'Ctrl+N');
   let shortcutToggleSidebar = $state(settingsStore.settings.shortcuts?.toggle_sidebar ?? 'Ctrl+M');
   let shortcutOpenSettings = $state(settingsStore.settings.shortcuts?.open_settings ?? 'Ctrl+,');
+  let shortcutCommandPalette = $state(settingsStore.settings.shortcuts?.command_palette ?? 'Ctrl+P');
+  let shortcutHistoryBack = $state(settingsStore.settings.shortcuts?.history_back ?? 'Ctrl+H');
+  let shortcutHistoryForward = $state(settingsStore.settings.shortcuts?.history_forward ?? 'Ctrl+L');
+  // Shortcuts - Editor
+  let shortcutSaveNote = $state(settingsStore.settings.shortcuts?.save_note ?? 'Ctrl+S');
+  let shortcutFindInNote = $state(settingsStore.settings.shortcuts?.find_in_note ?? 'Ctrl+F');
+  let shortcutBacklinkPanel = $state(settingsStore.settings.shortcuts?.backlink_panel ?? 'Ctrl+Shift+B');
 
   // テーマ一覧
   const themes: { id: ThemeName; name: string }[] = [
@@ -41,9 +48,6 @@
   let modalElement: HTMLDivElement;
   let closeButton: HTMLButtonElement;
   let hotkeyInput: HTMLInputElement;
-  let shortcutNewNoteInput: HTMLInputElement;
-  let shortcutToggleSidebarInput: HTMLInputElement;
-  let shortcutOpenSettingsInput: HTMLInputElement;
 
   onMount(async () => {
     closeButton?.focus();
@@ -51,9 +55,16 @@
     await settingsStore.refreshHotkey();
     hotkey = settingsStore.settings.hotkey;
     // ショートカットを更新
-    shortcutNewNote = settingsStore.settings.shortcuts?.new_note ?? 'Ctrl+N';
-    shortcutToggleSidebar = settingsStore.settings.shortcuts?.toggle_sidebar ?? 'Ctrl+M';
-    shortcutOpenSettings = settingsStore.settings.shortcuts?.open_settings ?? 'Ctrl+,';
+    const s = settingsStore.settings.shortcuts;
+    shortcutNewNote = s?.new_note ?? 'Ctrl+N';
+    shortcutToggleSidebar = s?.toggle_sidebar ?? 'Ctrl+M';
+    shortcutOpenSettings = s?.open_settings ?? 'Ctrl+,';
+    shortcutCommandPalette = s?.command_palette ?? 'Ctrl+P';
+    shortcutHistoryBack = s?.history_back ?? 'Ctrl+H';
+    shortcutHistoryForward = s?.history_forward ?? 'Ctrl+L';
+    shortcutSaveNote = s?.save_note ?? 'Ctrl+S';
+    shortcutFindInNote = s?.find_in_note ?? 'Ctrl+F';
+    shortcutBacklinkPanel = s?.backlink_panel ?? 'Ctrl+Shift+B';
   });
 
   let isEditingHotkey = $state(false);
@@ -118,11 +129,6 @@
   function startEditingShortcut(name: string, currentValue: string) {
     editingShortcut = name;
     shortcutInputValue = currentValue;
-    setTimeout(() => {
-      if (name === 'new_note') shortcutNewNoteInput?.focus();
-      else if (name === 'toggle_sidebar') shortcutToggleSidebarInput?.focus();
-      else if (name === 'open_settings') shortcutOpenSettingsInput?.focus();
-    }, 0);
   }
 
   function normalizeShortcut(value: string): string {
@@ -145,9 +151,17 @@
   function finishEditingShortcut() {
     const normalized = normalizeShortcut(shortcutInputValue);
     if (normalized && editingShortcut) {
-      if (editingShortcut === 'new_note') shortcutNewNote = normalized;
-      else if (editingShortcut === 'toggle_sidebar') shortcutToggleSidebar = normalized;
-      else if (editingShortcut === 'open_settings') shortcutOpenSettings = normalized;
+      switch (editingShortcut) {
+        case 'new_note': shortcutNewNote = normalized; break;
+        case 'toggle_sidebar': shortcutToggleSidebar = normalized; break;
+        case 'open_settings': shortcutOpenSettings = normalized; break;
+        case 'command_palette': shortcutCommandPalette = normalized; break;
+        case 'history_back': shortcutHistoryBack = normalized; break;
+        case 'history_forward': shortcutHistoryForward = normalized; break;
+        case 'save_note': shortcutSaveNote = normalized; break;
+        case 'find_in_note': shortcutFindInNote = normalized; break;
+        case 'backlink_panel': shortcutBacklinkPanel = normalized; break;
+      }
     }
     editingShortcut = null;
     shortcutInputValue = '';
@@ -241,16 +255,38 @@
     }
 
     // Save shortcuts if changed
-    const shortcuts = settingsStore.settings.shortcuts ?? { new_note: 'Ctrl+N', toggle_sidebar: 'Ctrl+M', open_settings: 'Ctrl+,' };
+    const shortcuts = settingsStore.settings.shortcuts ?? {
+      new_note: 'Ctrl+N',
+      toggle_sidebar: 'Ctrl+M',
+      open_settings: 'Ctrl+,',
+      command_palette: 'Ctrl+P',
+      history_back: 'Ctrl+H',
+      history_forward: 'Ctrl+L',
+      save_note: 'Ctrl+S',
+      find_in_note: 'Ctrl+F',
+      backlink_panel: 'Ctrl+Shift+B',
+    };
     if (
       shortcutNewNote !== shortcuts.new_note ||
       shortcutToggleSidebar !== shortcuts.toggle_sidebar ||
-      shortcutOpenSettings !== shortcuts.open_settings
+      shortcutOpenSettings !== shortcuts.open_settings ||
+      shortcutCommandPalette !== shortcuts.command_palette ||
+      shortcutHistoryBack !== shortcuts.history_back ||
+      shortcutHistoryForward !== shortcuts.history_forward ||
+      shortcutSaveNote !== shortcuts.save_note ||
+      shortcutFindInNote !== shortcuts.find_in_note ||
+      shortcutBacklinkPanel !== shortcuts.backlink_panel
     ) {
       await settingsStore.setShortcuts({
         new_note: shortcutNewNote,
         toggle_sidebar: shortcutToggleSidebar,
         open_settings: shortcutOpenSettings,
+        command_palette: shortcutCommandPalette,
+        history_back: shortcutHistoryBack,
+        history_forward: shortcutHistoryForward,
+        save_note: shortcutSaveNote,
+        find_in_note: shortcutFindInNote,
+        backlink_panel: shortcutBacklinkPanel,
       });
     }
 
@@ -449,6 +485,7 @@
       <section class="settings-section">
         <h3>Keyboard Shortcuts</h3>
         <div class="shortcuts-list">
+          <!-- Global hotkey -->
           <div class="shortcut-row editable">
             <span class="shortcut-desc">Toggle window (Global)</span>
             <div class="hotkey-input-wrapper">
@@ -478,84 +515,45 @@
           {#if hotkeyError}
             <div class="hotkey-error">{hotkeyError}</div>
           {/if}
-          <div class="shortcut-row editable">
-            <span class="shortcut-desc">New note</span>
-            <div class="hotkey-input-wrapper">
-              {#if editingShortcut === 'new_note'}
-                <input
-                  bind:this={shortcutNewNoteInput}
-                  type="text"
-                  class="hotkey-input"
-                  value={shortcutInputValue}
-                  placeholder="e.g., Ctrl+N"
-                  oninput={handleShortcutInputChange}
-                  onkeydown={handleShortcutInputKeydown}
-                  onblur={handleShortcutBlur}
-                />
-              {:else}
-                <button
-                  class="hotkey-button"
-                  onclick={() => startEditingShortcut('new_note', shortcutNewNote)}
-                  disabled={settingsStore.isSaving}
-                >
-                  <kbd>{shortcutNewNote}</kbd>
-                  <span class="edit-icon">Edit</span>
-                </button>
-              {/if}
+
+          <!-- Page-level shortcuts -->
+          {#each [
+            { key: 'new_note', label: 'New note', value: shortcutNewNote },
+            { key: 'toggle_sidebar', label: 'Toggle sidebar', value: shortcutToggleSidebar },
+            { key: 'open_settings', label: 'Settings', value: shortcutOpenSettings },
+            { key: 'command_palette', label: 'Command palette', value: shortcutCommandPalette },
+            { key: 'history_back', label: 'History back', value: shortcutHistoryBack },
+            { key: 'history_forward', label: 'History forward', value: shortcutHistoryForward },
+            { key: 'save_note', label: 'Save note', value: shortcutSaveNote },
+            { key: 'find_in_note', label: 'Find in note', value: shortcutFindInNote },
+            { key: 'backlink_panel', label: 'Backlink panel', value: shortcutBacklinkPanel },
+          ] as item (item.key)}
+            <div class="shortcut-row editable">
+              <span class="shortcut-desc">{item.label}</span>
+              <div class="hotkey-input-wrapper">
+                {#if editingShortcut === item.key}
+                  <input
+                    type="text"
+                    class="hotkey-input"
+                    value={shortcutInputValue}
+                    placeholder="e.g., Ctrl+N"
+                    oninput={handleShortcutInputChange}
+                    onkeydown={handleShortcutInputKeydown}
+                    onblur={handleShortcutBlur}
+                  />
+                {:else}
+                  <button
+                    class="hotkey-button"
+                    onclick={() => startEditingShortcut(item.key, item.value)}
+                    disabled={settingsStore.isSaving}
+                  >
+                    <kbd>{item.value}</kbd>
+                    <span class="edit-icon">Edit</span>
+                  </button>
+                {/if}
+              </div>
             </div>
-          </div>
-          <div class="shortcut-row editable">
-            <span class="shortcut-desc">Toggle sidebar</span>
-            <div class="hotkey-input-wrapper">
-              {#if editingShortcut === 'toggle_sidebar'}
-                <input
-                  bind:this={shortcutToggleSidebarInput}
-                  type="text"
-                  class="hotkey-input"
-                  value={shortcutInputValue}
-                  placeholder="e.g., Ctrl+M"
-                  oninput={handleShortcutInputChange}
-                  onkeydown={handleShortcutInputKeydown}
-                  onblur={handleShortcutBlur}
-                />
-              {:else}
-                <button
-                  class="hotkey-button"
-                  onclick={() => startEditingShortcut('toggle_sidebar', shortcutToggleSidebar)}
-                  disabled={settingsStore.isSaving}
-                >
-                  <kbd>{shortcutToggleSidebar}</kbd>
-                  <span class="edit-icon">Edit</span>
-                </button>
-              {/if}
-            </div>
-          </div>
-          <div class="shortcut-row editable">
-            <span class="shortcut-desc">Settings</span>
-            <div class="hotkey-input-wrapper">
-              {#if editingShortcut === 'open_settings'}
-                <input
-                  bind:this={shortcutOpenSettingsInput}
-                  type="text"
-                  class="hotkey-input"
-                  value={shortcutInputValue}
-                  placeholder="e.g., Ctrl+,"
-                  oninput={handleShortcutInputChange}
-                  onkeydown={handleShortcutInputKeydown}
-                  onblur={handleShortcutBlur}
-                />
-              {:else}
-                <button
-                  class="hotkey-button"
-                  onclick={() => startEditingShortcut('open_settings', shortcutOpenSettings)}
-                  disabled={settingsStore.isSaving}
-                >
-                  <kbd>{shortcutOpenSettings}</kbd>
-                  <span class="edit-icon">Edit</span>
-                </button>
-              {/if}
-            </div>
-          </div>
+          {/each}
         </div>
       </section>
     </div>

@@ -7,12 +7,14 @@ pub mod note;
 pub mod settings;
 pub mod window;
 pub mod hotkey;
+pub mod backlink;
 
 // コマンド関数を re-export
-pub use note::{create_note, save_note, load_note, delete_note, list_notes, search_notes};
+pub use note::{create_note, save_note, load_note, delete_note, list_notes, search_notes, resolve_wiki_link};
 pub use settings::{get_settings, update_settings};
 pub use window::{save_window_geometry, prepare_hide, set_last_note_uid, quit_app, hide_window, toggle_maximize};
 pub use hotkey::{update_hotkey, get_current_hotkey};
+pub use backlink::{get_backlinks, rebuild_backlink_index};
 
 // ===== DTO 定義（共有）=====
 
@@ -123,7 +125,14 @@ pub struct SettingsUpdateDto {
     pub restore_last_note: Option<bool>,
     pub storage_directory: Option<PathBuf>,
     pub hotkey: Option<String>,
+    // Shortcuts
     pub shortcut_new_note: Option<String>,
     pub shortcut_toggle_sidebar: Option<String>,
     pub shortcut_open_settings: Option<String>,
+    pub shortcut_command_palette: Option<String>,
+    pub shortcut_history_back: Option<String>,
+    pub shortcut_history_forward: Option<String>,
+    pub shortcut_save_note: Option<String>,
+    pub shortcut_find_in_note: Option<String>,
+    pub shortcut_backlink_panel: Option<String>,
 }

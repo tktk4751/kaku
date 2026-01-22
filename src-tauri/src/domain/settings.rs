@@ -125,17 +125,50 @@ impl Default for AutosaveSettings {
 /// ショートカットキー設定
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ShortcutSettings {
+    // Page-level shortcuts
+    #[serde(default = "default_new_note")]
     pub new_note: String,
+    #[serde(default = "default_toggle_sidebar")]
     pub toggle_sidebar: String,
+    #[serde(default = "default_open_settings")]
     pub open_settings: String,
+    #[serde(default = "default_command_palette")]
+    pub command_palette: String,
+    #[serde(default = "default_history_back")]
+    pub history_back: String,
+    #[serde(default = "default_history_forward")]
+    pub history_forward: String,
+    // Editor shortcuts
+    #[serde(default = "default_save_note")]
+    pub save_note: String,
+    #[serde(default = "default_find_in_note")]
+    pub find_in_note: String,
+    #[serde(default = "default_backlink_panel")]
+    pub backlink_panel: String,
 }
+
+fn default_new_note() -> String { "Ctrl+N".to_string() }
+fn default_toggle_sidebar() -> String { "Ctrl+M".to_string() }
+fn default_open_settings() -> String { "Ctrl+,".to_string() }
+fn default_command_palette() -> String { "Ctrl+P".to_string() }
+fn default_history_back() -> String { "Ctrl+H".to_string() }
+fn default_history_forward() -> String { "Ctrl+L".to_string() }
+fn default_save_note() -> String { "Ctrl+S".to_string() }
+fn default_find_in_note() -> String { "Ctrl+F".to_string() }
+fn default_backlink_panel() -> String { "Ctrl+Shift+B".to_string() }
 
 impl Default for ShortcutSettings {
     fn default() -> Self {
         Self {
-            new_note: "Ctrl+N".to_string(),
-            toggle_sidebar: "Ctrl+M".to_string(),
-            open_settings: "Ctrl+,".to_string(),
+            new_note: default_new_note(),
+            toggle_sidebar: default_toggle_sidebar(),
+            open_settings: default_open_settings(),
+            command_palette: default_command_palette(),
+            history_back: default_history_back(),
+            history_forward: default_history_forward(),
+            save_note: default_save_note(),
+            find_in_note: default_find_in_note(),
+            backlink_panel: default_backlink_panel(),
         }
     }
 }

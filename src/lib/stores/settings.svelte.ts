@@ -15,7 +15,17 @@ const defaultSettings: Settings = {
   theme: 'tokyo-night',
   theme_mode: 'dark',
   hotkey: 'Ctrl+Shift+Space',
-  shortcuts: { new_note: 'Ctrl+N', toggle_sidebar: 'Ctrl+M', open_settings: 'Ctrl+,' },
+  shortcuts: {
+    new_note: 'Ctrl+N',
+    toggle_sidebar: 'Ctrl+M',
+    open_settings: 'Ctrl+,',
+    command_palette: 'Ctrl+P',
+    history_back: 'Ctrl+H',
+    history_forward: 'Ctrl+L',
+    save_note: 'Ctrl+S',
+    find_in_note: 'Ctrl+F',
+    backlink_panel: 'Ctrl+Shift+B',
+  },
   autosave: { enabled: true, delay_ms: 2000 },
   restore_last_note: false,
   last_note_uid: null,
@@ -222,6 +232,24 @@ export function useSettingsStore() {
       }
       if (shortcuts.open_settings !== undefined) {
         update.shortcut_open_settings = shortcuts.open_settings;
+      }
+      if (shortcuts.command_palette !== undefined) {
+        update.shortcut_command_palette = shortcuts.command_palette;
+      }
+      if (shortcuts.history_back !== undefined) {
+        update.shortcut_history_back = shortcuts.history_back;
+      }
+      if (shortcuts.history_forward !== undefined) {
+        update.shortcut_history_forward = shortcuts.history_forward;
+      }
+      if (shortcuts.save_note !== undefined) {
+        update.shortcut_save_note = shortcuts.save_note;
+      }
+      if (shortcuts.find_in_note !== undefined) {
+        update.shortcut_find_in_note = shortcuts.find_in_note;
+      }
+      if (shortcuts.backlink_panel !== undefined) {
+        update.shortcut_backlink_panel = shortcuts.backlink_panel;
       }
 
       try {

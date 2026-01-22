@@ -1,10 +1,15 @@
 import { EditorState, type Extension } from '@codemirror/state';
-import { EditorView, lineNumbers, highlightActiveLine, drawSelection, keymap } from '@codemirror/view';
+import { EditorView, lineNumbers, drawSelection, keymap } from '@codemirror/view';
 import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language';
 import { search, SearchQuery, setSearchQuery, getSearchQuery, findNext, findPrevious, replaceNext, replaceAll as cmReplaceAll, searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { tokyoNightTheme } from './themes/tokyoNight';
 import { livePreviewPlugin } from './extensions/livePreview';
+import { wikiLinkPlugin, wikiLinkClickHandler } from './extensions/wikiLink';
+import { wikiLinkAutocomplete, updateNoteTitles } from './extensions/wikiLinkAutocomplete';
 import { getKeymapExtensions, getMarkdownExtension } from './extensions/keymaps';
+
+// Re-export for external use
+export { updateNoteTitles };
 
 import type { ThemeName } from '$lib/types';
 
@@ -12,6 +17,7 @@ export interface EditorConfig {
   parent: HTMLElement;
   doc?: string;
   onChange?: (content: string) => void;
+  onWikiLinkClick?: (title: string) => void;
   theme?: ThemeName;
   fontSize?: number;
   lineHeight?: number;
@@ -19,7 +25,7 @@ export interface EditorConfig {
 }
 
 export function createEditor(config: EditorConfig): EditorView {
-  const { parent, doc = '', onChange, theme = 'tokyo-night', fontSize = 14, lineHeight = 1.6, showLineNumbers = true } = config;
+  const { parent, doc = '', onChange, onWikiLinkClick, theme = 'tokyo-night', fontSize = 14, lineHeight = 1.6, showLineNumbers = true } = config;
 
   const updateListener = EditorView.updateListener.of((update) => {
     if (update.docChanged && onChange) {
@@ -30,7 +36,8 @@ export function createEditor(config: EditorConfig): EditorView {
   const extensions: Extension[] = [
     // Basic editor features
     ...(showLineNumbers ? [lineNumbers()] : []),
-    highlightActiveLine(),
+    // NOTE: highlightActiveLine() is intentionally NOT included
+    // to keep the editor clean without current line highlighting
     drawSelection(),
     bracketMatching(),
 
@@ -53,6 +60,11 @@ export function createEditor(config: EditorConfig): EditorView {
 
     // Live preview (hides markdown syntax on non-cursor lines)
     livePreviewPlugin(),
+
+    // Wiki link support ([[title]] and [[title|display]])
+    wikiLinkPlugin(),
+    wikiLinkAutocomplete(),
+    ...(onWikiLinkClick ? [wikiLinkClickHandler(onWikiLinkClick)] : []),
 
     // Theme (uses CSS variables - works with all color themes)
     tokyoNightTheme,

@@ -119,9 +119,9 @@ mod tests {
 
     /// 可視状態の追跡が正しく動作することを確認
     #[test]
-    fn test_is_visible_initially_false() {
-        // Note: この値は他のテストの影響を受ける可能性があるが、
-        // 静的変数の初期値は false である
+    fn test_is_visible_tracking() {
+        // Note: この値は他のテストの影響を受ける可能性がある
+        // アプリ起動時の初期値はfalse（トレイ常駐で起動）
         let initial = PlatformManager::is_visible();
 
         // 状態を変更してテスト

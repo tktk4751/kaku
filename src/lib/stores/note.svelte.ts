@@ -5,14 +5,21 @@
 // - 外部インターフェースは変更なし（後方互換性維持）
 
 import { createNote, saveNote, loadNote, listNotes, deleteNote } from '$lib/services/api';
-import type { NoteDto, NoteListItemDto } from '$lib/types';
+import { historyStore } from '$lib/stores/history.svelte';
+import type { NoteDto, NoteListItemDto, AppError } from '$lib/types';
+import { parseAppError } from '$lib/types';
+
+interface LoadOptions {
+  /** Skip adding to history (used when navigating via back/forward) */
+  skipHistory?: boolean;
+}
 
 // ===== 内部データ層（外部非公開）=====
 let currentNote = $state<NoteDto | null>(null);
 let noteList = $state<NoteListItemDto[]>([]);
 let isSaving = $state(false);
 let isDirty = $state(false);
-let saveError = $state<string | null>(null);
+let saveError = $state<AppError | null>(null);
 
 // 自動保存タイマー
 let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -27,8 +34,15 @@ export const _internal = {
   setNoteList(list: NoteListItemDto[]) { noteList = list; },
   setDirty(dirty: boolean) { isDirty = dirty; },
   setSaving(saving: boolean) { isSaving = saving; },
-  setError(error: string | null) { saveError = error; },
+  setError(error: AppError | null) { saveError = error; },
   getAutosaveTimer() { return autosaveTimer; },
+  /** Cleanup function - call when store is no longer needed */
+  cleanup() {
+    if (autosaveTimer) {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = null;
+    }
+  },
 };
 
 // ===== 公開API（既存と完全互換）=====
@@ -49,19 +63,25 @@ export function useNoteStore() {
         // 新規ノートを即座にファイルとして保存
         await saveNote(currentNote.uid, currentNote.content);
         await this.refreshList();
+        // 履歴に追加
+        historyStore.push(currentNote.uid);
       } catch (e) {
-        saveError = String(e);
+        saveError = parseAppError(e);
         throw e;
       }
     },
 
-    async load(uid: string) {
+    async load(uid: string, options?: LoadOptions) {
       try {
         currentNote = await loadNote(uid);
         isDirty = false;
         saveError = null;
+        // 履歴に追加（skipHistoryが指定されていない場合）
+        if (!options?.skipHistory) {
+          historyStore.push(uid);
+        }
       } catch (e) {
-        saveError = String(e);
+        saveError = parseAppError(e);
         throw e;
       }
     },
@@ -78,7 +98,7 @@ export function useNoteStore() {
         isDirty = false;
         await this.refreshList();
       } catch (e) {
-        saveError = String(e);
+        saveError = parseAppError(e);
         throw e;
       } finally {
         isSaving = false;
@@ -139,6 +159,9 @@ export function useNoteStore() {
       try {
         await deleteNote(uid);
 
+        // 履歴から削除
+        historyStore.remove(uid);
+
         // If we deleted the current note, load another one
         if (currentNote?.uid === uid) {
           await this.refreshList();
@@ -153,7 +176,7 @@ export function useNoteStore() {
 
         saveError = null;
       } catch (e) {
-        saveError = String(e);
+        saveError = parseAppError(e);
         throw e;
       }
     },

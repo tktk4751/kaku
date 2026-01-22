@@ -36,6 +36,16 @@ impl SearchService {
         Self { repository }
     }
 
+    /// タイトルでノートを検索（完全一致）
+    ///
+    /// Wiki linkの解決に使用
+    pub fn find_by_title(&self, title: &str) -> Result<Option<NoteListItem>, SearchError> {
+        let title_lower = title.to_lowercase();
+        let notes = self.repository.list_all()?;
+
+        Ok(notes.into_iter().find(|n| n.title.to_lowercase() == title_lower))
+    }
+
     /// ファジー検索を実行
     ///
     /// # Arguments
@@ -294,7 +304,8 @@ mod tests {
     fn test_skip_front_matter() {
         let content = b"---\nuid: test\nupdated_at: 2024\n---\n\nHello World";
         let result = SearchService::skip_front_matter(content);
-        assert!(result.starts_with(b"\nHello"));
+        // skip_front_matter skips past "---" + front matter + "\n---", leaving "\n\nHello World"
+        assert!(result.starts_with(b"\n\nHello"));
     }
 
     #[test]

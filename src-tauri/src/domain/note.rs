@@ -142,7 +142,16 @@ impl Note {
         }
     }
 
-    /// ファイル内容からパース
+    /// タイトル付きで新規メモを作成
+    pub fn with_title(title: &str) -> Self {
+        let mut note = Self::new();
+        note.content = format!("# {}\n\n", title);
+        note.metadata.title = Some(title.to_string());
+        note.is_dirty = true;
+        note
+    }
+
+    /// ファイル内容からパース（front matterあり）
     pub fn from_file_content(content: &str) -> Result<Self, NoteParseError> {
         if !content.starts_with("---\n") {
             return Err(NoteParseError::MissingFrontMatter);
@@ -171,6 +180,11 @@ impl Note {
             content: body,
             is_dirty: false,
         })
+    }
+
+    /// ファイル内容がfront matterを持つかチェック
+    pub fn has_front_matter(content: &str) -> bool {
+        content.starts_with("---\n") && content[4..].contains("\n---")
     }
 
     /// ファイル保存用の完全な内容を生成

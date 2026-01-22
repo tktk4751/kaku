@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { noteStore } from '$lib/stores/note.svelte';
+  import { noteStore, _internal as noteStoreInternal } from '$lib/stores/note.svelte';
   import { settingsStore } from '$lib/stores/settings.svelte';
+  import { historyStore } from '$lib/stores/history.svelte';
   import { prepareHide } from '$lib/services/api';
+  import { matchShortcut } from '$lib/utils/shortcuts';
   import Editor from '$lib/components/Editor.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import TitleBar from '$lib/components/TitleBar.svelte';
@@ -14,6 +16,7 @@
   let commandPaletteOpen = $state(false);
   let unlistenVisibility: (() => void) | null = null;
   let unlistenCreateNote: (() => void) | null = null;
+  let unlistenMouseNav: (() => void) | null = null;
 
   // Save before window hides (global hotkey or close button)
   async function handleBeforeHide() {
@@ -94,12 +97,18 @@
 
     // Handle page unload (browser/app close)
     window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Setup mouse back/forward navigation
+    unlistenMouseNav = setupMouseNavigation();
   });
 
   onDestroy(() => {
     unlistenVisibility?.();
     unlistenCreateNote?.();
+    unlistenMouseNav?.();
     window.removeEventListener('beforeunload', handleBeforeUnload);
+    // Cleanup autosave timer to prevent memory leaks
+    noteStoreInternal.cleanup();
   });
 
   function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -135,30 +144,21 @@
     await handleNoteSelect(uid);
   }
 
-  function parseShortcut(shortcut: string): { ctrl: boolean; shift: boolean; alt: boolean; key: string } {
-    const parts = shortcut.toLowerCase().split('+');
-    return {
-      ctrl: parts.includes('ctrl'),
-      shift: parts.includes('shift'),
-      alt: parts.includes('alt'),
-      key: parts[parts.length - 1] === 'space' ? ' ' : parts[parts.length - 1],
-    };
-  }
-
-  function matchShortcut(event: KeyboardEvent, shortcut: string): boolean {
-    const parsed = parseShortcut(shortcut);
-    const eventKey = event.key.toLowerCase();
-    return (
-      event.ctrlKey === parsed.ctrl &&
-      event.shiftKey === parsed.shift &&
-      event.altKey === parsed.alt &&
-      eventKey === parsed.key
-    );
-  }
-
   function handleKeydown(event: KeyboardEvent) {
-    // Ctrl+P: Toggle command palette (works everywhere)
-    if (event.ctrlKey && event.key === 'p') {
+    const shortcuts = settingsStore.settings.shortcuts ?? {
+      new_note: 'Ctrl+N',
+      toggle_sidebar: 'Ctrl+M',
+      open_settings: 'Ctrl+,',
+      command_palette: 'Ctrl+P',
+      history_back: 'Ctrl+H',
+      history_forward: 'Ctrl+L',
+      save_note: 'Ctrl+S',
+      find_in_note: 'Ctrl+F',
+      backlink_panel: 'Ctrl+Shift+B',
+    };
+
+    // Command palette shortcut (works everywhere)
+    if (matchShortcut(event, shortcuts.command_palette)) {
       event.preventDefault();
       commandPaletteOpen = !commandPaletteOpen;
       return;
@@ -193,12 +193,6 @@
     // Skip other shortcuts if typing in input
     if (isInput) return;
 
-    const shortcuts = settingsStore.settings.shortcuts ?? {
-      new_note: 'Ctrl+N',
-      toggle_sidebar: 'Ctrl+M',
-      open_settings: 'Ctrl+,',
-    };
-
     // New note shortcut
     if (matchShortcut(event, shortcuts.new_note)) {
       event.preventDefault();
@@ -216,6 +210,67 @@
       event.preventDefault();
       openSettings();
       return;
+    }
+    // History back
+    if (matchShortcut(event, shortcuts.history_back)) {
+      event.preventDefault();
+      handleGoBack();
+      return;
+    }
+    // History forward
+    if (matchShortcut(event, shortcuts.history_forward)) {
+      event.preventDefault();
+      handleGoForward();
+      return;
+    }
+  }
+
+  // Handle mouse back/forward buttons (uses native listener to avoid scroll interference)
+  function setupMouseNavigation() {
+    function handleMouseUp(event: MouseEvent) {
+      // Button 3 = Back, Button 4 = Forward
+      // Use mouseup instead of mousedown to avoid scroll interference
+      if (event.button === 3) {
+        event.preventDefault();
+        handleGoBack();
+      } else if (event.button === 4) {
+        event.preventDefault();
+        handleGoForward();
+      }
+    }
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => window.removeEventListener('mouseup', handleMouseUp);
+  }
+
+  // Go back in history
+  async function handleGoBack() {
+    if (!historyStore.canGoBack) return;
+
+    // Save current note before navigating
+    if (noteStore.isDirty && noteStore.currentNote) {
+      noteStore.cancelAutosave();
+      await noteStore.save();
+    }
+
+    const uid = historyStore.goBack();
+    if (uid) {
+      await noteStore.load(uid, { skipHistory: true });
+    }
+  }
+
+  // Go forward in history
+  async function handleGoForward() {
+    if (!historyStore.canGoForward) return;
+
+    // Save current note before navigating
+    if (noteStore.isDirty && noteStore.currentNote) {
+      noteStore.cancelAutosave();
+      await noteStore.save();
+    }
+
+    const uid = historyStore.goForward();
+    if (uid) {
+      await noteStore.load(uid, { skipHistory: true });
     }
   }
 

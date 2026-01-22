@@ -3,14 +3,26 @@
   import { untrack } from 'svelte';
   import { noteStore } from '$lib/stores/note.svelte';
   import { settingsStore } from '$lib/stores/settings.svelte';
-  import { createEditor, setEditorContent, focusEditor } from '$lib/editor/setup';
+  import { createEditor, setEditorContent, focusEditor, updateNoteTitles } from '$lib/editor/setup';
+  import { resolveWikiLink, getBacklinks } from '$lib/services/api';
+  import { matchShortcut } from '$lib/utils/shortcuts';
+  import type { BacklinkDto } from '$lib/types';
   import type { EditorView } from '@codemirror/view';
   import FindBar from './FindBar.svelte';
+  import BacklinkPanel from './BacklinkPanel.svelte';
+
+  interface Props {
+    onNavigateToNote?: (uid: string) => void;
+  }
+
+  let { onNavigateToNote }: Props = $props();
 
   let editorContainer: HTMLDivElement;
   let editorView = $state<EditorView | null>(null);
   let isUpdatingFromStore = false;
   let showFindBar = $state(false);
+  let showBacklinks = $state(false);
+  let backlinks = $state<BacklinkDto[]>([]);
 
   // Track previous settings (plain variables, not reactive)
   let prevTheme: string | null = null;
@@ -20,7 +32,41 @@
 
   onMount(() => {
     initEditor();
+    // Update note titles for autocomplete
+    updateNoteTitles(noteStore.noteList);
   });
+
+  // Update note titles when noteList changes
+  $effect(() => {
+    updateNoteTitles(noteStore.noteList);
+  });
+
+  // Handle wiki link navigation
+  async function handleWikiLinkClick(title: string) {
+    try {
+      // Save current note first if dirty
+      if (noteStore.isDirty && noteStore.currentNote) {
+        noteStore.cancelAutosave();
+        await noteStore.save();
+      }
+
+      // Resolve wiki link (find or create note)
+      const note = await resolveWikiLink(title);
+
+      // Refresh note list in case a new note was created
+      await noteStore.refreshList();
+
+      // Navigate to the note
+      if (onNavigateToNote) {
+        onNavigateToNote(note.uid);
+      } else {
+        // Fallback: load directly
+        await noteStore.load(note.uid);
+      }
+    } catch (e) {
+      console.error('Failed to resolve wiki link:', e);
+    }
+  }
 
   onDestroy(() => {
     editorView?.destroy();
@@ -46,6 +92,7 @@
           noteStore.updateContent(content);
         }
       },
+      onWikiLinkClick: handleWikiLinkClick,
     });
 
     // Store initial values
@@ -90,6 +137,7 @@
               noteStore.updateContent(content);
             }
           },
+          onWikiLinkClick: handleWikiLinkClick,
         });
 
         // Update previous values
@@ -119,12 +167,60 @@
 
   // Handle keyboard shortcuts
   function handleKeydown(event: KeyboardEvent) {
-    if (event.ctrlKey && event.key === 's') {
+    const shortcuts = settingsStore.settings.shortcuts ?? {
+      save_note: 'Ctrl+S',
+      find_in_note: 'Ctrl+F',
+      backlink_panel: 'Ctrl+Shift+B',
+    };
+
+    if (matchShortcut(event, shortcuts.save_note)) {
       event.preventDefault();
       noteStore.save();
-    } else if (event.ctrlKey && event.key === 'f') {
+    } else if (matchShortcut(event, shortcuts.find_in_note)) {
       event.preventDefault();
       showFindBar = !showFindBar;
+    } else if (matchShortcut(event, shortcuts.backlink_panel)) {
+      event.preventDefault();
+      toggleBacklinks();
+    }
+  }
+
+  // Toggle backlink panel
+  async function toggleBacklinks() {
+    if (showBacklinks) {
+      showBacklinks = false;
+      return;
+    }
+
+    if (!noteStore.currentNote) return;
+
+    try {
+      backlinks = await getBacklinks(noteStore.currentNote.uid);
+      showBacklinks = true;
+    } catch (e) {
+      console.error('Failed to get backlinks:', e);
+    }
+  }
+
+  function handleCloseBacklinks() {
+    showBacklinks = false;
+    if (editorView) {
+      editorView.focus();
+    }
+  }
+
+  async function handleBacklinkSelect(uid: string) {
+    // Save current note first if dirty
+    if (noteStore.isDirty && noteStore.currentNote) {
+      noteStore.cancelAutosave();
+      await noteStore.save();
+    }
+
+    // Navigate to the note
+    if (onNavigateToNote) {
+      onNavigateToNote(uid);
+    } else {
+      await noteStore.load(uid);
     }
   }
 
@@ -132,11 +228,10 @@
     showFindBar = false;
   }
 
-  // Ensure editor focus on click - but not when clicking find bar
+  // Ensure editor focus on click - but not when clicking find bar or backlink panel
   function handleClick(e: MouseEvent) {
-    // Don't focus editor if clicking inside find-bar
     const target = e.target as HTMLElement;
-    if (target.closest('.find-bar')) {
+    if (target.closest('.find-bar') || target.closest('.backlink-panel')) {
       return;
     }
     if (editorView) {
@@ -154,6 +249,14 @@
     <FindBar {editorView} onClose={handleCloseFindBar} />
   {/if}
   <div class="editor-container" bind:this={editorContainer}></div>
+
+  {#if showBacklinks}
+    <BacklinkPanel
+      {backlinks}
+      onSelect={handleBacklinkSelect}
+      onClose={handleCloseBacklinks}
+    />
+  {/if}
 </div>
 
 <style>

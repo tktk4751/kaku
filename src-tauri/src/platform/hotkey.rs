@@ -4,8 +4,9 @@ use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 /// ウィンドウ表示状態（Wayland互換のため独自追跡）
+/// 初期値はfalse（アプリはトレイ常駐で起動し、ウィンドウは非表示）
 static WINDOW_VISIBLE: once_cell::sync::Lazy<Arc<Mutex<bool>>> =
-    once_cell::sync::Lazy::new(|| Arc::new(Mutex::new(true)));
+    once_cell::sync::Lazy::new(|| Arc::new(Mutex::new(false)));
 
 /// グローバルホットキーをセットアップ
 pub fn setup_global_hotkey<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Error>> {

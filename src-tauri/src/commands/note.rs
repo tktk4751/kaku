@@ -12,31 +12,27 @@ const MAX_QUERY_LENGTH: usize = 200;
 
 // ===== 入力検証 =====
 
-/// UID検証: タイムスタンプ形式（数字のみ、14-20文字）
+/// UID検証（タイムスタンプ形式のみ）
 ///
-/// 形式: YYYYMMDDHHmmss + ナノ秒下6桁
-/// 例: "2026011418102637208" (19-20文字)
+/// アプリで生成されるUIDはタイムスタンプ形式（数字のみ、14-20文字）
+/// 例: "2026011418102637208"
 ///
 /// # セキュリティ
 ///
 /// - 数字のみ許可（パストラバーサル防止）
-/// - 長さ制限（DoS防止）
+/// - 長さ制限: 14-26文字（タイムスタンプ + ナノ秒）
 fn validate_uid(uid: &str) -> Result<(), String> {
-    // 空チェック
-    if uid.is_empty() {
-        return Err("UID cannot be empty".to_string());
-    }
-
-    // 長さチェック（タイムスタンプ形式: 14-20文字）
-    // 14文字: YYYYMMDDHHmmss
-    // +6文字: ナノ秒の下6桁
+    // 長さチェック（タイムスタンプは14-26文字）
     if uid.len() < 14 || uid.len() > 26 {
-        return Err(format!("Invalid UID length: expected 14-26, got {}", uid.len()));
+        return Err(format!(
+            "Invalid UID length: {} characters (expected 14-26)",
+            uid.len()
+        ));
     }
 
-    // 文字チェック（数字と英字のみ）
+    // 数字のみ許可
     for c in uid.chars() {
-        if !c.is_ascii_alphanumeric() {
+        if !c.is_ascii_digit() {
             return Err(format!("Invalid character in UID: '{}'", c));
         }
     }
@@ -84,11 +80,17 @@ pub fn save_note(state: State<AppState>, uid: String, content: String) -> Result
         }
     };
 
-    note.update_content(content);
+    note.update_content(content.clone());
     state
         .note_service
         .save_note(&note)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    // バックリンクインデックスを更新
+    let title = note.metadata.title.clone().unwrap_or_default();
+    state.backlink_service.update_note(&note.metadata.uid, &title, &content);
+
+    Ok(())
 }
 
 /// メモをロード
@@ -111,7 +113,12 @@ pub fn delete_note(state: State<AppState>, uid: String) -> Result<(), String> {
     state
         .note_service
         .delete_note(&uid)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    // バックリンクインデックスから削除
+    state.backlink_service.remove_note(&uid);
+
+    Ok(())
 }
 
 /// 全メモ一覧を取得
@@ -152,40 +159,80 @@ pub fn search_notes(
         .map_err(|e| e.to_string())
 }
 
+/// Wiki linkを解決（タイトルからノートを検索、なければ作成）
+#[tauri::command]
+pub fn resolve_wiki_link(
+    state: State<AppState>,
+    title: String,
+) -> Result<NoteDto, String> {
+    // タイトル長制限
+    if title.len() > 200 {
+        return Err("Title too long".to_string());
+    }
+
+    // タイトルでノートを検索
+    if let Some(note_item) = state
+        .search_service
+        .find_by_title(&title)
+        .map_err(|e| e.to_string())?
+    {
+        // 既存ノートをロード
+        return state
+            .note_service
+            .load_note(&note_item.uid)
+            .map(NoteDto::from)
+            .map_err(|e| e.to_string());
+    }
+
+    // ノートが見つからない場合は新規作成
+    let note = crate::domain::Note::with_title(&title);
+    state
+        .note_service
+        .save_note(&note)
+        .map_err(|e| e.to_string())?;
+
+    // バックリンクインデックスに追加
+    state.backlink_service.update_note(&note.metadata.uid, &title, &note.content);
+
+    Ok(NoteDto::from(note))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_validate_uid_valid() {
-        // 有効なタイムスタンプ形式（19-20文字）
+        // タイムスタンプ形式（アプリ内生成）
         assert!(validate_uid("2026011418102637208").is_ok());
         assert!(validate_uid("20260114181236685512").is_ok());
-        // 最小長（14文字: YYYYMMDDHHmmss）
         assert!(validate_uid("20260114181026").is_ok());
-        // 26文字も許可（将来のULID対応）
-        assert!(validate_uid("01ARZ3NDEKTSV4RRFFQ69G5FAV").is_ok());
     }
 
     #[test]
-    fn test_validate_uid_empty() {
+    fn test_validate_uid_too_short() {
+        // 14文字未満
+        assert!(validate_uid("1234567890123").is_err());
         assert!(validate_uid("").is_err());
     }
 
     #[test]
-    fn test_validate_uid_wrong_length() {
-        assert!(validate_uid("2026011").is_err()); // 短すぎ（<14）
-        assert!(validate_uid("01ARZ3NDEKTSV4RRFFQ69G5FAVXXX").is_err()); // 長すぎ（>26）
+    fn test_validate_uid_too_long() {
+        // 26文字を超える場合はエラー
+        let long_uid = "1".repeat(27);
+        assert!(validate_uid(&long_uid).is_err());
+        // 26文字以下はOK
+        let max_uid = "1".repeat(26);
+        assert!(validate_uid(&max_uid).is_ok());
     }
 
     #[test]
     fn test_validate_uid_invalid_chars() {
-        // パス区切り文字
-        assert!(validate_uid("20260114181026/x").is_err());
-        assert!(validate_uid("20260114181026\\x").is_err());
+        // 英字（数字のみ許可）
+        assert!(validate_uid("2026011418102a").is_err());
         // 特殊文字
-        assert!(validate_uid("20260114181026..").is_err());
-        assert!(validate_uid("20260114181026--").is_err());
+        assert!(validate_uid("20260114181026/").is_err());
+        assert!(validate_uid("20260114181026.").is_err());
     }
 
     #[test]

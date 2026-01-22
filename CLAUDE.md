@@ -58,3 +58,31 @@ Use Tauri commands via `@tauri-apps/api/core`:
 import { invoke } from "@tauri-apps/api/core";
 const result = await invoke("command_name", { arg: value });
 ```
+
+## Editor Constraints (IMPORTANT)
+
+These rules must be followed to maintain expected editor behavior:
+
+### CodeMirror Setup (`src/lib/editor/setup.ts`)
+- **DO NOT** add `highlightActiveLine()` - user does not want current line highlighting
+- Keep the editor clean and minimal without extra visual decorations
+
+### Event Handlers (`src/routes/+page.svelte`)
+- **DO NOT** use `onmousedown` on `<svelte:window>` - it interferes with scroll behavior
+- For mouse back/forward buttons, use native `addEventListener('mouseup', ...)` in `onMount`
+
+### Keyboard Shortcuts (All configurable in Settings)
+| Default Shortcut | Action | Setting Key |
+|------------------|--------|-------------|
+| Ctrl+Shift+Space | Global hotkey (show/hide window) | `hotkey` |
+| Ctrl+N | New note | `shortcuts.new_note` |
+| Ctrl+M | Toggle sidebar | `shortcuts.toggle_sidebar` |
+| Ctrl+, | Open settings | `shortcuts.open_settings` |
+| Ctrl+P | Command palette | `shortcuts.command_palette` |
+| Ctrl+H | History back | `shortcuts.history_back` |
+| Ctrl+L | History forward | `shortcuts.history_forward` |
+| Ctrl+S | Save note | `shortcuts.save_note` |
+| Ctrl+F | Find in note | `shortcuts.find_in_note` |
+| Ctrl+Shift+B | Backlink panel | `shortcuts.backlink_panel` |
+| Mouse Back (Button 3) | History back | (not configurable) |
+| Mouse Forward (Button 4) | History forward | (not configurable) |
