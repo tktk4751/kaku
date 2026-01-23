@@ -1,4 +1,5 @@
 use crate::domain::Note;
+use crate::infrastructure::GalleryNote;
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -18,6 +19,13 @@ pub trait NoteRepository: Send + Sync {
 
     /// UIDからファイルパスを取得
     fn get_path(&self, uid: &str) -> Option<PathBuf>;
+
+    /// ギャラリー用ノート一覧を取得（高速キャッシュ版）
+    fn list_gallery(
+        &self,
+        sort_by_created: bool,
+        tag_filter: Option<&str>,
+    ) -> Result<Vec<GalleryNote>, RepositoryError>;
 }
 
 /// メモ一覧アイテム

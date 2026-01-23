@@ -1,5 +1,6 @@
 use crate::domain::{DomainEvent, Note};
-use crate::traits::{EventBus, NoteRepository, NoteListItem, RepositoryError};
+use crate::infrastructure::GalleryNote;
+use crate::traits::{EventBus, NoteListItem, NoteRepository, RepositoryError};
 use std::sync::Arc;
 
 /// ノートサービス（ビジネスロジック層）
@@ -64,5 +65,14 @@ impl NoteService {
     /// 全メモ一覧を取得
     pub fn list_notes(&self) -> Result<Vec<NoteListItem>, RepositoryError> {
         self.repository.list_all()
+    }
+
+    /// ギャラリー用ノート一覧を取得（高速キャッシュ版）
+    pub fn list_gallery_notes(
+        &self,
+        sort_by_created: bool,
+        tag_filter: Option<&str>,
+    ) -> Result<Vec<GalleryNote>, RepositoryError> {
+        self.repository.list_gallery(sort_by_created, tag_filter)
     }
 }

@@ -13,9 +13,10 @@
     onNewNote: () => void;
     onOpenSettings: () => void;
     onDeleteNote: (uid: string) => void;
+    onOpenHome: () => void;
   }
 
-  let { isOpen, onClose, onNoteSelect, onNewNote, onOpenSettings, onDeleteNote }: Props = $props();
+  let { isOpen, onClose, onNoteSelect, onNewNote, onOpenSettings, onDeleteNote, onOpenHome }: Props = $props();
 
   let deleteConfirmUid = $state<string | null>(null);
   let deleteConfirmTitle = $state('');
@@ -227,12 +228,22 @@
 >
   <header class="sidebar-header">
     <h2 id="sidebar-title">Notes</h2>
-    <button class="icon-btn" onclick={onNewNote} title="New note (Ctrl+N)" aria-label="Create new note">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="12" y1="5" x2="12" y2="19"></line>
-        <line x1="5" y1="12" x2="19" y2="12"></line>
-      </svg>
-    </button>
+    <div class="header-actions">
+      <button class="icon-btn" onclick={onOpenHome} title="Home (Ctrl+Shift+A)" aria-label="Open home view">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7"></rect>
+          <rect x="14" y="3" width="7" height="7"></rect>
+          <rect x="14" y="14" width="7" height="7"></rect>
+          <rect x="3" y="14" width="7" height="7"></rect>
+        </svg>
+      </button>
+      <button class="icon-btn" onclick={onNewNote} title="New note (Ctrl+N)" aria-label="Create new note">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </button>
+    </div>
   </header>
 
   <!-- Search Bar -->
@@ -384,6 +395,12 @@
     font-size: 14px;
     font-weight: 600;
     color: var(--fg-primary);
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
 
   .icon-btn {

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct NoteMetadata {
     pub uid: String,
     pub title: Option<String>,
+    pub tags: Vec<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -22,6 +23,7 @@ impl NoteMetadata {
         Self {
             uid,
             title: None,
+            tags: Vec::new(),
             created_at: now,
             updated_at: now,
         }
@@ -33,6 +35,7 @@ impl NoteMetadata {
         Self {
             uid,
             title: None,
+            tags: Vec::new(),
             created_at: now,
             updated_at: now,
         }
@@ -43,23 +46,53 @@ impl NoteMetadata {
         // カスタムパーサーを使用（serde_yaml非依存）
         let mut uid = None;
         let mut title = None;
+        let mut tags = Vec::new();
         let mut created_at = None;
         let mut updated_at = None;
+        let mut in_tags = false;
 
         for line in yaml.lines() {
-            let line = line.trim();
-            if line.starts_with("uid:") {
-                uid = Some(line.trim_start_matches("uid:").trim().to_string());
-            } else if line.starts_with("title:") {
-                let value = line.trim_start_matches("title:").trim();
+            let line_trimmed = line.trim();
+
+            // タグ配列の処理
+            if in_tags {
+                if line_trimmed.starts_with("- ") {
+                    let tag = line_trimmed.trim_start_matches("- ").trim().to_string();
+                    if !tag.is_empty() {
+                        tags.push(tag);
+                    }
+                    continue;
+                } else if !line_trimmed.is_empty() && !line.starts_with(' ') && !line.starts_with('\t') {
+                    // 新しいフィールドが始まった
+                    in_tags = false;
+                }
+            }
+
+            if line_trimmed.starts_with("uid:") {
+                uid = Some(line_trimmed.trim_start_matches("uid:").trim().to_string());
+            } else if line_trimmed.starts_with("title:") {
+                let value = line_trimmed.trim_start_matches("title:").trim();
                 if !value.is_empty() {
                     title = Some(value.to_string());
                 }
-            } else if line.starts_with("created_at:") {
-                let value = line.trim_start_matches("created_at:").trim();
+            } else if line_trimmed.starts_with("tags:") {
+                let inline_value = line_trimmed.trim_start_matches("tags:").trim();
+                // インライン配列形式: tags: [tag1, tag2]
+                if inline_value.starts_with('[') && inline_value.ends_with(']') {
+                    let inner = &inline_value[1..inline_value.len()-1];
+                    tags = inner.split(',')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect();
+                } else if inline_value.is_empty() {
+                    // 複数行形式
+                    in_tags = true;
+                }
+            } else if line_trimmed.starts_with("created_at:") {
+                let value = line_trimmed.trim_start_matches("created_at:").trim();
                 created_at = Self::parse_datetime(value);
-            } else if line.starts_with("updated_at:") {
-                let value = line.trim_start_matches("updated_at:").trim();
+            } else if line_trimmed.starts_with("updated_at:") {
+                let value = line_trimmed.trim_start_matches("updated_at:").trim();
                 updated_at = Self::parse_datetime(value);
             }
         }
@@ -68,6 +101,7 @@ impl NoteMetadata {
             (Some(uid), Some(created_at), Some(updated_at)) => Ok(Self {
                 uid,
                 title,
+                tags,
                 created_at,
                 updated_at,
             }),
@@ -98,10 +132,16 @@ impl NoteMetadata {
             Some(t) => format!("title: {}\n", t),
             None => String::new(),
         };
+        let tags_line = if self.tags.is_empty() {
+            String::new()
+        } else {
+            format!("tags:\n{}", self.tags.iter().map(|t| format!("  - {}", t)).collect::<Vec<_>>().join("\n")) + "\n"
+        };
         format!(
-            "uid: {}\n{}created_at: {}\nupdated_at: {}",
+            "uid: {}\n{}{}created_at: {}\nupdated_at: {}",
             self.uid,
             title_line,
+            tags_line,
             Self::format_datetime(&self.created_at),
             Self::format_datetime(&self.updated_at)
         )
@@ -225,6 +265,43 @@ impl Note {
     /// 保存完了をマーク
     pub fn mark_saved(&mut self) {
         self.is_dirty = false;
+    }
+
+    /// フロントマターのタグを取得
+    pub fn tags(&self) -> &[String] {
+        &self.metadata.tags
+    }
+
+    /// タグを更新
+    pub fn update_tags(&mut self, tags: Vec<String>) {
+        self.metadata.tags = tags;
+        self.metadata.updated_at = Utc::now();
+        self.is_dirty = true;
+    }
+
+    /// 本文からハッシュタグを抽出
+    pub fn extract_hashtags(&self) -> Vec<String> {
+        let mut hashtags = Vec::new();
+        let re = regex::Regex::new(r"(?:^|\s)#([a-zA-Z0-9_\-\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]+)").unwrap();
+        for cap in re.captures_iter(&self.content) {
+            let tag = cap[1].to_lowercase();
+            if !hashtags.contains(&tag) {
+                hashtags.push(tag);
+            }
+        }
+        hashtags
+    }
+
+    /// 全タグを取得（フロントマター + ハッシュタグをマージ、重複排除）
+    pub fn all_tags(&self) -> Vec<String> {
+        let mut all = self.metadata.tags.clone();
+        for tag in self.extract_hashtags() {
+            if !all.iter().any(|t| t.to_lowercase() == tag.to_lowercase()) {
+                all.push(tag);
+            }
+        }
+        all.sort();
+        all
     }
 }
 

@@ -12,6 +12,9 @@ import type {
   Settings,
   Result,
   AppError,
+  NoteGalleryItemDto,
+  GallerySortOrder,
+  NoteTagsDto,
 } from '$lib/types';
 import { ok, err, parseAppError } from '$lib/types';
 
@@ -198,4 +201,60 @@ export async function updateHotkeySafe(hotkey: string): Promise<Result<void, App
 /** Get the current global hotkey */
 export async function getCurrentHotkey(): Promise<string> {
   return await invoke('get_current_hotkey');
+}
+
+// ===== Gallery =====
+
+/** List notes for gallery view */
+export async function listNotesGallery(
+  sortOrder?: GallerySortOrder,
+  tagFilter?: string
+): Promise<NoteGalleryItemDto[]> {
+  return await invoke('list_notes_gallery', {
+    sortOrder: sortOrder ?? 'updated_at',
+    tagFilter,
+  });
+}
+
+/** List notes for gallery with Result-based error handling */
+export async function listNotesGallerySafe(
+  sortOrder?: GallerySortOrder,
+  tagFilter?: string
+): Promise<Result<NoteGalleryItemDto[], AppError>> {
+  return safeInvoke('list_notes_gallery', {
+    sortOrder: sortOrder ?? 'updated_at',
+    tagFilter,
+  });
+}
+
+// ===== Tags =====
+
+/** Get all tags across all notes */
+export async function getAllTags(): Promise<string[]> {
+  return await invoke('get_all_tags');
+}
+
+/** Get all tags with Result-based error handling */
+export async function getAllTagsSafe(): Promise<Result<string[], AppError>> {
+  return safeInvoke('get_all_tags');
+}
+
+/** Get tags for a specific note */
+export async function getNoteTags(uid: string): Promise<NoteTagsDto> {
+  return await invoke('get_note_tags', { uid });
+}
+
+/** Get note tags with Result-based error handling */
+export async function getNoteTagsSafe(uid: string): Promise<Result<NoteTagsDto, AppError>> {
+  return safeInvoke('get_note_tags', { uid });
+}
+
+/** Update tags for a note */
+export async function updateNoteTags(uid: string, tags: string[]): Promise<void> {
+  return await invoke('update_note_tags', { uid, tags });
+}
+
+/** Update note tags with Result-based error handling */
+export async function updateNoteTagsSafe(uid: string, tags: string[]): Promise<Result<void, AppError>> {
+  return safeInvoke('update_note_tags', { uid, tags });
 }

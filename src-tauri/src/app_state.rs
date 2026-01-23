@@ -4,9 +4,11 @@
 // 全てのサービスとその依存関係をここで構築・管理する
 
 use crate::infrastructure::{
-    EventBusImpl, FileNoteRepository, FileSettingsRepository, FileStorage, HeadingFilenameStrategy,
+    EventBusImpl, FileSettingsRepository, FileStorage, HeadingFilenameStrategy,
+    HybridRepository, SqliteIndex,
 };
 use crate::services::{BacklinkService, NoteService, SearchService, SettingsService};
+use log::info;
 use std::sync::Arc;
 
 /// アプリケーション状態（Dependency Injection Container）
@@ -31,14 +33,30 @@ impl AppState {
             event_bus.clone(),
         ));
 
-        // Storage & Repository
+        // Storage & Repository (HybridRepository with SQLite index)
         let storage = Arc::new(FileStorage::new());
         let filename_strategy = Arc::new(HeadingFilenameStrategy::new());
-        let note_repository = Arc::new(FileNoteRepository::new(
+
+        // SQLiteインデックスを初期化（設定ディレクトリにDBファイルを配置）
+        let db_path = settings_service.config_directory().join("index.db");
+        let sqlite_index = Arc::new(
+            SqliteIndex::open(db_path.clone())
+                .expect("Failed to open SQLite index"),
+        );
+        info!("[AppState] SQLite index opened at {:?}", db_path);
+
+        // HybridRepositoryを作成
+        let note_repository = Arc::new(HybridRepository::new(
+            sqlite_index,
             storage,
             filename_strategy,
             settings_service.clone(),
         ));
+
+        // インデックスを初期化（必要に応じてファイルをスキャン）
+        if let Err(e) = note_repository.initialize() {
+            eprintln!("[AppState] Failed to initialize index: {}", e);
+        }
 
         // Note Service
         let note_service = NoteService::new(note_repository.clone(), event_bus.clone());

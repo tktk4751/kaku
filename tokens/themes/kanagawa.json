@@ -1,0 +1,98 @@
+{
+  "theme": {
+    "kanagawa": {
+      "dark": {
+        "bg": {
+          "primary": { "value": "#1f1f28", "type": "color" },
+          "secondary": { "value": "#16161d", "type": "color" },
+          "tertiary": { "value": "#2a2a37", "type": "color" },
+          "highlight": { "value": "#363646", "type": "color" }
+        },
+        "fg": {
+          "primary": { "value": "#dcd7ba", "type": "color" },
+          "secondary": { "value": "#c8c093", "type": "color" },
+          "muted": { "value": "#727169", "type": "color" },
+          "dark": { "value": "#54546d", "type": "color" }
+        },
+        "accent": {
+          "blue": { "value": "#7e9cd8", "type": "color" },
+          "cyan": { "value": "#7fb4ca", "type": "color" },
+          "purple": { "value": "#957fb8", "type": "color" },
+          "green": { "value": "#98bb6c", "type": "color" },
+          "orange": { "value": "#ffa066", "type": "color" },
+          "red": { "value": "#e82424", "type": "color" },
+          "yellow": { "value": "#e6c384", "type": "color" }
+        },
+        "border": { "value": "#363646", "type": "color" },
+        "scrollbar": {
+          "track": { "value": "#1f1f28", "type": "color" },
+          "thumb": { "value": "#54546d", "type": "color" }
+        },
+        "editor": {
+          "bg": { "value": "#1f1f28", "type": "color" },
+          "line-highlight": { "value": "#2a2a37", "type": "color" },
+          "selection": { "value": "#2d4f67", "type": "color" },
+          "cursor": { "value": "#c8c093", "type": "color" }
+        },
+        "md": {
+          "heading1": { "value": "#957fb8", "type": "color" },
+          "heading2": { "value": "#7e9cd8", "type": "color" },
+          "heading3": { "value": "#7fb4ca", "type": "color" },
+          "heading4": { "value": "#98bb6c", "type": "color" },
+          "heading5": { "value": "#e6c384", "type": "color" },
+          "bold": { "value": "#ffa066", "type": "color" },
+          "italic": { "value": "#dcd7ba", "type": "color" },
+          "link": { "value": "#6b9e9e", "type": "color" },
+          "code": { "value": "#98bb6c", "type": "color" },
+          "code-bg": { "value": "#2a2a37", "type": "color" }
+        }
+      },
+      "light": {
+        "bg": {
+          "primary": { "value": "#f2ecbc", "type": "color" },
+          "secondary": { "value": "#e7dba0", "type": "color" },
+          "tertiary": { "value": "#e4d794", "type": "color" },
+          "highlight": { "value": "#d5c87e", "type": "color" }
+        },
+        "fg": {
+          "primary": { "value": "#545464", "type": "color" },
+          "secondary": { "value": "#626271", "type": "color" },
+          "muted": { "value": "#8a8980", "type": "color" },
+          "dark": { "value": "#717066", "type": "color" }
+        },
+        "accent": {
+          "blue": { "value": "#4d699b", "type": "color" },
+          "cyan": { "value": "#597b75", "type": "color" },
+          "purple": { "value": "#624c83", "type": "color" },
+          "green": { "value": "#6e915f", "type": "color" },
+          "orange": { "value": "#cc6d00", "type": "color" },
+          "red": { "value": "#c84053", "type": "color" },
+          "yellow": { "value": "#a07f32", "type": "color" }
+        },
+        "border": { "value": "#d5c87e", "type": "color" },
+        "scrollbar": {
+          "track": { "value": "#f2ecbc", "type": "color" },
+          "thumb": { "value": "#8a8980", "type": "color" }
+        },
+        "editor": {
+          "bg": { "value": "#e7dba0", "type": "color" },
+          "line-highlight": { "value": "#e4d794", "type": "color" },
+          "selection": { "value": "#c4b88a", "type": "color" },
+          "cursor": { "value": "#545464", "type": "color" }
+        },
+        "md": {
+          "heading1": { "value": "#624c83", "type": "color" },
+          "heading2": { "value": "#4d699b", "type": "color" },
+          "heading3": { "value": "#597b75", "type": "color" },
+          "heading4": { "value": "#6e915f", "type": "color" },
+          "heading5": { "value": "#a07f32", "type": "color" },
+          "bold": { "value": "#cc6d00", "type": "color" },
+          "italic": { "value": "#545464", "type": "color" },
+          "link": { "value": "#5e857a", "type": "color" },
+          "code": { "value": "#6e915f", "type": "color" },
+          "code-bg": { "value": "#e4d794", "type": "color" }
+        }
+      }
+    }
+  }
+}

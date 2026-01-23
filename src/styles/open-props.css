@@ -1,0 +1,19 @@
+/**
+ * Open Props - Design Tokens
+ * Only importing what we need to minimize bundle size
+ */
+
+/* Animation & Easing */
+@import "open-props/easings";
+
+/* Shadows */
+@import "open-props/shadows";
+
+/* Z-Index layers */
+@import "open-props/zindex";
+
+/* Aspects (for responsive containers) */
+@import "open-props/aspects";
+
+/* Note: We're using our own spacing and colors from Style Dictionary */
+/* Open Props provides additional utilities for animations and shadows */

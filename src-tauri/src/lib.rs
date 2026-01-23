@@ -164,6 +164,12 @@ pub fn run() {
             // Hotkey commands
             commands::hotkey::update_hotkey,
             commands::hotkey::get_current_hotkey,
+            // Gallery commands
+            commands::gallery::list_notes_gallery,
+            // Tag commands
+            commands::tag::get_all_tags,
+            commands::tag::get_note_tags,
+            commands::tag::update_note_tags,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

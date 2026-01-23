@@ -42,8 +42,10 @@
 //! - 大規模コレクション（1000+ノート）ではキャッシュウォームアップを検討
 
 use crate::domain::Note;
+use crate::infrastructure::GalleryNote;
 use crate::services::SettingsService;
 use crate::traits::{FilenameStrategy, NoteRepository, NoteListItem, RepositoryError, Storage};
+use crate::commands::gallery::{generate_preview, PREVIEW_LENGTH};
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -350,6 +352,57 @@ impl NoteRepository for FileNoteRepository {
     fn get_path(&self, uid: &str) -> Option<PathBuf> {
         let cache = self.path_cache.read();
         cache.get(uid).cloned()
+    }
+
+    fn list_gallery(
+        &self,
+        sort_by_created: bool,
+        tag_filter: Option<&str>,
+    ) -> Result<Vec<GalleryNote>, RepositoryError> {
+        // FileNoteRepositoryはN+1クエリになるがフォールバック用として実装
+        let files = self.storage.list_files(&self.base_dir(), "md")?;
+        let mut items = Vec::new();
+
+        for path in files {
+            if let Ok(content) = self.storage.load(&path) {
+                if let Ok(note) = Note::from_file_content(&content) {
+                    let title = note
+                        .extract_heading()
+                        .unwrap_or_else(|| note.metadata.uid.clone());
+
+                    // タグを抽出（フロントマター + ハッシュタグ）
+                    let tags = note.all_tags();
+
+                    // タグフィルタを適用
+                    if let Some(filter) = tag_filter {
+                        if !tags.iter().any(|t| t == filter) {
+                            continue;
+                        }
+                    }
+
+                    // プレビュー生成
+                    let preview = generate_preview(&note.content, PREVIEW_LENGTH);
+
+                    items.push(GalleryNote {
+                        uid: note.metadata.uid,
+                        title,
+                        preview,
+                        tags,
+                        created_at: note.metadata.created_at,
+                        updated_at: note.metadata.updated_at,
+                    });
+                }
+            }
+        }
+
+        // ソート
+        if sort_by_created {
+            items.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        } else {
+            items.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+        }
+
+        Ok(items)
     }
 }
 

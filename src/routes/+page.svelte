@@ -10,10 +10,14 @@
   import TitleBar from '$lib/components/TitleBar.svelte';
   import SettingsModal from '$lib/components/SettingsModal.svelte';
   import CommandPalette from '$lib/components/CommandPalette.svelte';
+  import HomeView from '$lib/components/HomeView.svelte';
+  import TagEditDialog from '$lib/components/TagEditDialog.svelte';
+  import { homeStore } from '$lib/stores/home.svelte';
 
   let sidebarOpen = $state(false);
   let settingsOpen = $state(false);
   let commandPaletteOpen = $state(false);
+  let tagEditOpen = $state(false);
   let unlistenVisibility: (() => void) | null = null;
   let unlistenCreateNote: (() => void) | null = null;
   let unlistenMouseNav: (() => void) | null = null;
@@ -157,6 +161,20 @@
       backlink_panel: 'Ctrl+Shift+B',
     };
 
+    // Home view shortcut (Ctrl+Shift+A) - works everywhere
+    if (matchShortcut(event, 'Ctrl+Shift+A')) {
+      event.preventDefault();
+      openHome();
+      return;
+    }
+
+    // Tag edit shortcut (Ctrl+T) when not in home view
+    if (matchShortcut(event, 'Ctrl+T') && !homeStore.isVisible && noteStore.currentNote) {
+      event.preventDefault();
+      tagEditOpen = true;
+      return;
+    }
+
     // Command palette shortcut (works everywhere)
     if (matchShortcut(event, shortcuts.command_palette)) {
       event.preventDefault();
@@ -164,8 +182,8 @@
       return;
     }
 
-    // Don't handle other shortcuts when command palette is open
-    if (commandPaletteOpen) {
+    // Don't handle other shortcuts when command palette or home view is open
+    if (commandPaletteOpen || homeStore.isVisible) {
       return;
     }
 
@@ -317,6 +335,19 @@
       console.error('Failed to delete note:', e);
     }
   }
+
+  function openHome() {
+    closeSidebar();
+    homeStore.show();
+  }
+
+  async function handleNavigateFromHome(uid: string) {
+    await handleNoteSelect(uid);
+  }
+
+  function closeTagEdit() {
+    tagEditOpen = false;
+  }
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -331,6 +362,7 @@
     onNewNote={handleNewNote}
     onOpenSettings={openSettings}
     onDeleteNote={handleDeleteNote}
+    onOpenHome={openHome}
   />
 
   <main class="main-content">
@@ -343,6 +375,17 @@
 
   {#if commandPaletteOpen}
     <CommandPalette onSelect={handlePaletteSelect} onClose={closeCommandPalette} />
+  {/if}
+
+  <HomeView onNavigateToNote={handleNavigateFromHome} />
+
+  {#if tagEditOpen && noteStore.currentNote}
+    <TagEditDialog
+      bind:open={tagEditOpen}
+      noteUid={noteStore.currentNote.uid}
+      onClose={closeTagEdit}
+      onSave={() => noteStore.refreshList()}
+    />
   {/if}
 </div>
 

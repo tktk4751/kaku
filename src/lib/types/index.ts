@@ -165,3 +165,22 @@ export interface BacklinkDto {
   title: string;
   context: string;
 }
+
+// ギャラリー関連
+export interface NoteGalleryItemDto {
+  uid: string;
+  title: string;
+  preview: string;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export type GallerySortOrder = 'updated_at' | 'created_at';
+
+// タグ関連
+export interface NoteTagsDto {
+  frontmatter_tags: string[];
+  hashtags: string[];
+  all_tags: string[];
+}

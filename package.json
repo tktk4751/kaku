@@ -5,12 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "bun run tokens && vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "tauri": "tauri",
-    "tauri:dev": "GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 tauri dev"
+    "tauri:dev": "GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 tauri dev",
+    "tokens": "style-dictionary build --config style-dictionary.config.js",
+    "tokens:watch": "style-dictionary build --config style-dictionary.config.js --watch"
   },
   "license": "MIT",
   "dependencies": {
@@ -25,16 +27,18 @@
     "@lezer/markdown": "^1.6.3",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.5.0",
-    "@tauri-apps/plugin-opener": "^2"
+    "@tauri-apps/plugin-opener": "^2",
+    "open-props": "^1.7.17"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.6",
     "@sveltejs/kit": "^2.9.0",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "@tauri-apps/cli": "^2",
+    "style-dictionary": "^5.2.0",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",
     "typescript": "~5.6.2",
-    "vite": "^6.0.3",
-    "@tauri-apps/cli": "^2"
+    "vite": "^6.0.3"
   }
 }

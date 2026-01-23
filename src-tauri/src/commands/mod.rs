@@ -8,6 +8,8 @@ pub mod settings;
 pub mod window;
 pub mod hotkey;
 pub mod backlink;
+pub mod gallery;
+pub mod tag;
 
 // コマンド関数を re-export
 pub use note::{create_note, save_note, load_note, delete_note, list_notes, search_notes, resolve_wiki_link};
@@ -15,6 +17,8 @@ pub use settings::{get_settings, update_settings};
 pub use window::{save_window_geometry, prepare_hide, set_last_note_uid, quit_app, hide_window, toggle_maximize};
 pub use hotkey::{update_hotkey, get_current_hotkey};
 pub use backlink::{get_backlinks, rebuild_backlink_index};
+pub use gallery::list_notes_gallery;
+pub use tag::{get_all_tags, get_note_tags, update_note_tags};
 
 // ===== DTO 定義（共有）=====
 

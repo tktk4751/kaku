@@ -21,7 +21,7 @@ const MAX_QUERY_LENGTH: usize = 200;
 ///
 /// - 数字のみ許可（パストラバーサル防止）
 /// - 長さ制限: 14-26文字（タイムスタンプ + ナノ秒）
-fn validate_uid(uid: &str) -> Result<(), String> {
+pub fn validate_uid(uid: &str) -> Result<(), String> {
     // 長さチェック（タイムスタンプは14-26文字）
     if uid.len() < 14 || uid.len() > 26 {
         return Err(format!(

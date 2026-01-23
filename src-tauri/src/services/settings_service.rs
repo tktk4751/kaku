@@ -92,6 +92,14 @@ impl SettingsService {
         self.settings.read().storage_directory.clone()
     }
 
+    /// 設定ディレクトリを取得（SQLiteインデックスなどの配置場所）
+    pub fn config_directory(&self) -> PathBuf {
+        crate::domain::Settings::config_path()
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| PathBuf::from(".config/kaku"))
+    }
+
     /// 最後に開いたノートのUIDを更新
     pub fn update_last_note_uid(&self, uid: Option<String>) -> Result<(), SettingsError> {
         self.update(|settings| {
